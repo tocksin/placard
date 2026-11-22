@@ -1,0 +1,1621 @@
+; ============================================================
+; wave.masm - WAVE.PLC: plays the .WAV files in the card's SOUNDS folder
+; ============================================================
+;
+; A library program the DOS runs from the card (Enter on WAVE.PLC in the
+; browser, or BOOT.CFG = "WAVE.PLC").  It opens the folder SOUNDS in the
+; card's root and plays its .WAV files one after the other, in the order
+; they are in the folder, reading each from the card while it plays.
+;
+; The file is a plain WAV file: PCM, 8 bits, one channel.  That is the
+; board's own sound (docs/sound/SOUND.md: the video circuit reads one
+; unsigned 8-bit sample on every scan line, 31,469 a second), so the
+; file's samples go to the sound buffer as they are.  The file's sample
+; rate picks one of three speeds:
+;
+;     31,469 Hz   every sample once      (a rate of 23,552 Hz or more)
+;     15,734 Hz   every sample twice     (11,776 Hz or more)
+;      7,867 Hz   every sample 4 times   (less)
+;
+; A file at any other rate plays at the nearest of the three, so faster
+; or slower than it was recorded (32,000 Hz: 1.7 % slow).  gen_wave.py
+; makes a file at the exact rate from any sound file.
+;
+; How it keeps up.  The sound buffer x5DF3-x5FFF is a ring of 525 bytes
+; that the video reads once a frame.  The line read (x5000, V9:V2) says
+; where the video is, in groups of four lines: 132 groups a lap.  The
+; program reads a sector (fs_read, about 7 ms) to x4000, and copies it to
+; the ring ahead of the video in pieces of at most 256 ring bytes, each
+; when 67 groups (268 lines) or more are free between its write pointer
+; and the video.  So the ring holds between about 260 and 520 samples not
+; played yet: a card that answers up to 6 ms late is not heard, and the
+; video never catches up with or is passed by the writing.
+;
+; A sector in a new cluster can cost fs_read a second read, of the FAT,
+; and two reads are as long as the whole ring.  So when the sector just
+; read was its cluster's last, the program looks the next cluster up
+; itself (fs_nextc, the reader's cluster put back after it) at a moment
+; the ring is full: the FAT sector is then in the reader's buffer when
+; fs_read wants it.
+;
+;     Space                   pause, and go on
+;     Right, Enter            the next file
+;     Left, Backspace         the file before
+;     Esc                     back to the DOS (menu_poll)
+;
+; After the folder's last file the program goes back by itself.
+;
+; Pinboard's Files card runs it for a .WAV file in any folder (MB_PHOTO =
+; "S" and a parent to go back to): the files are then that folder's
+; (MB_PCLUS), the first one played is the one chosen (MB_PN: its number
+; among the folder's .WAV files), and the end or Esc goes back to
+; Pinboard.
+;
+; RAM: the program at x0100 (asm_expand.py pages it), zero page x20-x8F,
+; the sector x4000-x41FF, a page of silence x4200.
+;
+;     python3 asm_expand.py wave.masm                 wave.asm
+;     python3 gen_plc.py wave.asm -o ../../sdcard/WAVE.PLC
+;     python3 gen_wave.py song.mp3 -o ../../sdcard/SOUNDS/SONG.WAV
+;     python3 test_wave.py                            runs it in the emulator
+;
+; Date: 11/22/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+wv_n    = 0x20              ; the file played, 0 = the folder's first
+wv_tot  = 0x21              ; .WAV files in the folder
+wv_k    = 0x22              ; counter
+wv_t    = 0x24              ; scratch
+wv_d    = 0x25              ; scratch
+wv_key  = 0x29              ; the key
+wv_dc   = 0x2A              ; 4: the files' folder (its first cluster)
+wv_from = 0x2E              ; 1: Pinboard's Files card asked for a file
+wv_name = 0x30              ; the file's name, "NAME.WAV", 00 (13 bytes)
+wv_hb   = 0x40              ; 24: a chunk's first bytes (the header walk)
+wv_pl   = 0x58              ; the chunk's address in the sector
+wv_ph   = 0x59
+wv_ql   = 0x5A              ; peek's pointer
+wv_qh   = 0x5B
+wv_rem  = 0x5C              ; 4: sample bytes of the file not taken yet
+wv_avl  = 0x60              ; sample bytes left in the sector at x4000
+wv_avh  = 0x61
+wv_sl   = 0x62              ; the next of them
+wv_sh   = 0x63
+wv_dl   = 0x64              ; the ring's write pointer (x5DF3-x5FFF)
+wv_dh   = 0x65
+wv_cnt  = 0x66              ; copy: sample bytes to go (0 = 256)
+wv_rep  = 0x67              ; times a sample is written: 1, 2, 4
+wv_kk   = 0x68              ; copy: times to go
+wv_smp  = 0x69              ; copy: the sample
+wv_wg   = 0x6A              ; the write pointer's group, 0-131
+wv_new  = 0x6B              ; 1: nothing written yet (the pointer not set)
+wv_hold = 0x6C              ; 1: paused
+wv_frm  = 0x6D              ; FRAME_LO when the keys were last read
+wv_acl  = 0x6E              ; sample bytes copied since the last whole second
+wv_ach  = 0x6F
+wv_sec  = 0x70              ; played: seconds, minutes
+wv_min  = 0x71
+wv_tsec = 0x72              ; the file's length
+wv_tmin = 0x73
+wv_draw = 0x74              ; 1: the time line is to be drawn
+wv_tsl  = 0x75              ; the file's sectors (for the bar)
+wv_tsh  = 0x76
+wv_bal  = 0x77              ; the bar's remainder
+wv_bah  = 0x78
+wv_cell = 0x79              ; bar cells drawn, 0-64
+wv_fmt  = 0x7A              ; 1: the "fmt " chunk was read
+wv_g    = 0x7B              ; the line read
+wv_ch   = 0x7C              ; sample bytes in a piece: 0 (256), 128, 64
+wv_kcl  = 0x7D              ; sample bytes a second
+wv_kch  = 0x7E
+wv_rp   = 0x7F              ; copy: wv_rep, or 1 for silence
+wv_tmp  = 0x80              ; 4: wv_rem kept; the reader's cluster kept
+wv_warm = 0x84              ; 1: the reader's next sector is in a new cluster
+
+SECT      = 0x4000          ; the sector read
+QUIET     = 0x4200          ; 256 bytes of 80h
+RING_LO   = 0xF3            ; the ring: x5DF3-x5FFF
+RING_HI   = 0x5D
+FE_LO     = FS_ENTRY & 0xFF
+ROOM      = 67              ; groups free before a piece is written
+BAR_COL   = 3
+BAR_ROW   = 9
+
+; the menu block's bytes for Pinboard and this program (placard_menu.asm)
+MB_PHOTO  = 0x19            ; "S": Pinboard's Files card asks for a sound
+MB_PCLUS  = 0x1B            ; 4: the folder of the file asked for
+MB_PN     = 0x1F            ; its number among the folder's .WAV files
+
+.prefix wv
+.region 0x0100, 0x1F00
+
+; ============================================================
+; main - the text screen, the folder, how many files
+; ============================================================
+.fixed 0x0100
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    CALL con_clear
+    CALL quiet
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    ld   1, ac
+    CALL msg
+    clr  ac
+    ld   ac, [wv_n]
+    ld   ac, [wv_tot]
+    ld   ac, [wv_from]
+    ld   ac, [wv_hold]
+    ld   0x80, ac               ; the page of silence
+    ld   ac, [wv_t]
+    clr  ac
+    ld   ac, [R0]
+    ld   ac, [R2]
+    ld   QUIET >> 8, ac
+    ld   ac, [R1]
+    ld   [wv_t], ac
+    CALL memset
+    CALL fs_mount
+    bne  mn_no
+    GOTO whose
+mn_no:
+    GOTO nodir
+
+.chunk
+nodir:
+    ld   s_nodir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_nodir >> 8, ac
+    ld   ac, [R1]
+    GOTO fail
+
+; ------------------------------------------------------------
+; msg - the string at R1:R0 on text row AC, from column 2
+; ------------------------------------------------------------
+.chunk
+msg:
+    PUSH_LINK
+    ld   ac, [CUR_ROW]
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    CALL con_puts
+    LEAVE
+
+; ------------------------------------------------------------
+; quiet - the whole sound buffer = 80h
+; ------------------------------------------------------------
+.chunk
+quiet:
+    PUSH_LINK
+    ld   RING_LO, ac
+    ld   ac, [R0]
+    ld   RING_HI, ac
+    ld   ac, [R1]
+    ld   13, ac
+    ld   ac, [R2]
+    ld   0x80, ac
+    CALL memset                 ; x5DF3-x5DFF; R1:R0 = x5E00, R2 = 0
+    ld   0x80, ac
+    CALL memset                 ; x5E00-x5EFF
+    ld   0x80, ac
+    CALL memset                 ; x5F00-x5FFF
+    LEAVE
+
+; ------------------------------------------------------------
+; whose - whose files: the folder Pinboard's Files card was in (and the
+; file chosen there first), or the card's SOUNDS folder
+; ------------------------------------------------------------
+.chunk
+whose:
+    ld   MENU_BLK >> 8, y
+    ld   MB_PHOTO, x
+    ld   [y,x], ac
+    xor  0x53, ac               ; "S"
+    bne  fr_own
+    ld   MB_PARENT, x           ; and Pinboard to go back to
+    ld   [y,x], ac
+    beq  fr_own
+    ld   MB_PCLUS, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc]
+    ld   MB_PCLUS + 1, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc + 1]
+    ld   MB_PCLUS + 2, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc + 2]
+    ld   MB_PCLUS + 3, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc + 3]
+    ld   MB_PN, x
+    ld   [y,x], ac
+    ld   ac, [wv_n]
+    ld   1, ac
+    ld   ac, [wv_from]
+    GOTO count
+fr_own:
+    GOTO own
+
+.chunk
+own:
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    bne  ow_no
+    ld   FSV, y
+    ld   V_DCLUS, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc]
+    ld   V_DCLUS + 1, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc + 1]
+    ld   V_DCLUS + 2, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc + 2]
+    ld   V_DCLUS + 3, x
+    ld   [y,x], ac
+    ld   ac, [wv_dc + 3]
+    GOTO count
+ow_no:
+    GOTO nodir
+
+; ------------------------------------------------------------
+; opendir - the reader at the start of the files' folder: AC = 0, or the
+; error
+; ------------------------------------------------------------
+.chunk
+opendir:
+    PUSH_LINK
+    ld   FSV, y
+    ld   V_DCLUS, x
+    ld   [wv_dc], ac
+    ld   ac, [y,x]
+    ld   V_DCLUS + 1, x
+    ld   [wv_dc + 1], ac
+    ld   ac, [y,x]
+    ld   V_DCLUS + 2, x
+    ld   [wv_dc + 2], ac
+    ld   ac, [y,x]
+    ld   V_DCLUS + 3, x
+    ld   [wv_dc + 3], ac
+    ld   ac, [y,x]
+    CALL fs_cwd
+    LEAVE
+
+; ------------------------------------------------------------
+; count - wv_tot = the .WAV files in the folder
+; ------------------------------------------------------------
+.chunk
+count:
+    CALL opendir
+    bne  ct_end
+ct_loop:
+    CALL fs_next
+    bne  ct_end
+    CALL is_wav
+    bne  ct_loop
+    ld   [wv_tot], ac
+    inc
+    ld   ac, [wv_tot]
+    xor  255, ac                ; (255 at most)
+    bne  ct_loop
+ct_end:
+    ld   [wv_tot], ac
+    bne  ct_some
+    ld   s_none & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_none >> 8, ac
+    ld   ac, [R1]
+    GOTO fail
+ct_some:
+    ld   s_keys1 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_keys1 >> 8, ac
+    ld   ac, [R1]
+    ld   12, ac
+    CALL msg
+    ld   s_keys2 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_keys2 >> 8, ac
+    ld   ac, [R1]
+    ld   13, ac
+    CALL msg
+    GOTO show
+
+; ------------------------------------------------------------
+; is_wav - AC = 0 when FS_ENTRY is a file named *.WAV (a leaf)
+; ------------------------------------------------------------
+.chunk
+is_wav:
+    ld   FS_ENTRY >> 8, y
+    ld   FE_LO + 11, x
+    ld   [y,x], ac
+    and  0x18, ac               ; a folder, the volume name
+    bne  iw_no
+    ld   FE_LO + 8, x
+    ld   [y,x], ac
+    xor  0x57, ac               ; W
+    bne  iw_no
+    ld   FE_LO + 9, x
+    ld   [y,x], ac
+    xor  0x41, ac               ; A
+    bne  iw_no
+    ld   FE_LO + 10, x
+    ld   [y,x], ac
+    xor  0x56, ac               ; V
+    bne  iw_no
+    RET
+iw_no:
+    ld   1, ac
+    RET
+
+; ------------------------------------------------------------
+; show - file wv_n: the folder from its start, the wv_n-th .WAV file's
+; name, the file opened.  A number past the folder's last file plays the
+; first
+; ------------------------------------------------------------
+.chunk
+show:
+    CALL opendir
+    bne  sh_bad
+    ld   [wv_n], ac
+    ld   ac, [wv_k]
+sh_next:
+    CALL fs_next
+    bne  sh_end
+    CALL is_wav
+    bne  sh_next
+    ld   [wv_k], ac
+    beq  sh_found
+    dec
+    ld   ac, [wv_k]
+    bra  sh_next
+sh_found:
+    GOTO name
+sh_end:
+    ld   [wv_n], ac
+    beq  sh_bad
+    clr  ac
+    ld   ac, [wv_n]
+    bra  show
+sh_bad:
+    GOTO bad
+
+.chunk
+bad:
+    ld   s_bad & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bad >> 8, ac
+    ld   ac, [R1]
+    GOTO fail
+
+; the name: up to 8 characters (to the first space), then ".WAV", 00
+.chunk
+name:
+    ld   FE_LO, ac
+    ld   ac, [wv_t]
+    ld   wv_name, ac
+    ld   ac, [wv_d]
+    ld   8, ac
+    ld   ac, [wv_k]
+nm_ch:
+    ld   [wv_t], x
+    ld   FS_ENTRY >> 8, y
+    ld   [y,x], ac
+    xor  0x20, ac
+    beq  nm_ext
+    xor  0x20, ac
+    ld   [wv_d], x
+    ld   ac, [x]
+    ld   [wv_t], ac
+    inc
+    ld   ac, [wv_t]
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    ld   [wv_k], ac
+    dec
+    ld   ac, [wv_k]
+    bne  nm_ch
+nm_ext:
+    ld   [wv_d], ac
+    ld   ac, x
+    ld   0x2E, [x]
+    add  1, x
+    ld   0x57, [x]
+    add  2, x
+    ld   0x41, [x]
+    add  3, x
+    ld   0x56, [x]
+    add  4, x
+    ld   0x00, [x]
+    ld   wv_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    CALL fs_open
+    beq  nm_ok
+    GOTO bad
+nm_ok:
+    GOTO title
+
+; ------------------------------------------------------------
+; title - row 3: the name, "n of m"; then the file's first sector
+; ------------------------------------------------------------
+.chunk
+title:
+    ld   wv_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    ld   3, ac
+    CALL msg
+tt_pad:
+    ld   0x20, ac
+    CALL con_putc
+    ld   [CUR_COL], ac
+    xor  16, ac
+    bne  tt_pad
+    ld   [wv_n], ac
+    inc
+    CALL con_dec8
+    ld   s_of & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_of >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [wv_tot], ac
+    CALL con_dec8
+    ld   0x20, ac
+    CALL con_putc
+    ld   0x20, ac
+    CALL con_putc
+    GOTO first
+
+.chunk
+first:
+    clr  ac
+    ld   ac, [R4]
+    ld   SECT >> 8, ac
+    ld   ac, [R5]
+    CALL fs_read
+    beq  fi_ok
+    GOTO badwav                 ; an empty file
+fi_ok:
+    GOTO parse
+
+; ============================================================
+; the WAV header: "RIFF" size "WAVE", then chunks (name, size, bytes)
+; of which "fmt " and "data" are wanted, all in the first sector
+; ============================================================
+.chunk
+parse:
+    ld   SECT >> 8, y
+    ld   0, x
+    ld   [y,x], ac
+    xor  0x52, ac               ; R
+    bne  pa_no
+    ld   1, x
+    ld   [y,x], ac
+    xor  0x49, ac               ; I
+    bne  pa_no
+    ld   2, x
+    ld   [y,x], ac
+    xor  0x46, ac               ; F
+    bne  pa_no
+    ld   8, x
+    ld   [y,x], ac
+    xor  0x57, ac               ; W
+    bne  pa_no
+    ld   9, x
+    ld   [y,x], ac
+    xor  0x41, ac               ; A
+    bne  pa_no
+    ld   10, x
+    ld   [y,x], ac
+    xor  0x56, ac               ; V
+    bne  pa_no
+    ld   12, ac
+    ld   ac, [wv_pl]
+    ld   SECT >> 8, ac
+    ld   ac, [wv_ph]
+    clr  ac
+    ld   ac, [wv_fmt]
+    GOTO walk
+pa_no:
+    GOTO badwav
+
+; walk - the chunk at wv_ph:wv_pl (24 bytes of it must be in the sector)
+.chunk
+walk:
+    ld   [wv_ph], ac
+    xor  SECT >> 8, ac
+    beq  wk_ok
+    xor  1, ac
+    bne  wk_bad
+    ld   0xE8, ac
+    sub  [wv_pl], ac
+    bcs  wk_bad
+wk_ok:
+    CALL peek
+    ld   [wv_hb], ac
+    xor  0x66, ac               ; f
+    bne  wk_nf
+    ld   [wv_hb + 1], ac
+    xor  0x6D, ac               ; m
+    bne  wk_skip
+    ld   [wv_hb + 2], ac
+    xor  0x74, ac               ; t
+    bne  wk_skip
+    GOTO fmt
+wk_nf:
+    xor  0x66 ^ 0x64, ac        ; d
+    bne  wk_skip
+    ld   [wv_hb + 1], ac
+    xor  0x61, ac               ; a
+    bne  wk_skip
+    ld   [wv_hb + 2], ac
+    xor  0x74, ac               ; t
+    bne  wk_skip
+    ld   [wv_hb + 3], ac
+    xor  0x61, ac               ; a
+    bne  wk_skip
+    GOTO data
+wk_skip:
+    GOTO skip
+wk_bad:
+    GOTO badwav
+
+; peek - wv_hb = the 24 bytes at wv_ph:wv_pl (a leaf)
+.chunk
+peek:
+    ld   [wv_pl], ac
+    ld   ac, [wv_ql]
+    ld   [wv_ph], ac
+    ld   ac, [wv_qh]
+    ld   wv_hb, ac
+    ld   ac, [wv_d]
+pk_l:
+    ld   [wv_qh], y
+    ld   [wv_ql], x
+    ld   [y,x], ac
+    ld   [wv_d], x
+    ld   ac, [x]
+    ld   [wv_ql], ac
+    inc
+    ld   ac, [wv_ql]
+    bne  pk_n
+    ld   [wv_qh], ac
+    inc
+    ld   ac, [wv_qh]
+pk_n:
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    xor  wv_hb + 24, ac
+    bne  pk_l
+    RET
+
+; skip - on to the next chunk: 8 + the size, and one more for an odd size
+.chunk
+skip:
+    ld   [wv_hb + 6], ac
+    or   [wv_hb + 7], ac
+    bne  sk_bad
+    ld   [wv_hb + 5], ac
+    and  0xFE, ac
+    bne  sk_bad
+    ld   [wv_hb + 4], ac
+    and  1, ac
+    add  8, ac
+    add  [wv_pl], ac
+    ld   ac, [wv_pl]
+    bcc  sk_1
+    ld   [wv_ph], ac
+    inc
+    ld   ac, [wv_ph]
+sk_1:
+    ld   [wv_hb + 4], ac
+    add  [wv_pl], ac
+    ld   ac, [wv_pl]
+    bcc  sk_2
+    ld   [wv_ph], ac
+    inc
+    ld   ac, [wv_ph]
+sk_2:
+    ld   [wv_hb + 5], ac
+    add  [wv_ph], ac
+    ld   ac, [wv_ph]
+    GOTO walk
+sk_bad:
+    GOTO badwav
+
+; fmt - PCM (1), one channel, 8 bits; the rate picks the speed
+.chunk
+fmt:
+    ld   [wv_hb + 8], ac
+    xor  1, ac
+    or   [wv_hb + 9], ac
+    bne  fm_bad
+    ld   [wv_hb + 10], ac
+    xor  1, ac
+    or   [wv_hb + 11], ac
+    bne  fm_bad
+    ld   [wv_hb + 22], ac
+    xor  8, ac
+    or   [wv_hb + 23], ac
+    bne  fm_bad
+    ld   1, ac
+    ld   ac, [wv_fmt]
+    ld   [wv_hb + 14], ac
+    or   [wv_hb + 15], ac
+    bne  fm_1
+    ld   [wv_hb + 13], ac
+    sub  0x5C, ac               ; 23,552 Hz or more
+    bcc  fm_1
+    ld   [wv_hb + 13], ac
+    sub  0x2E, ac               ; 11,776 Hz or more
+    bcc  fm_2
+    ld   4, ac                  ; 7,867 Hz: 1EBBh bytes a second
+    ld   ac, [wv_rep]
+    ld   64, ac
+    ld   ac, [wv_ch]
+    ld   0xBB, ac
+    ld   ac, [wv_kcl]
+    ld   0x1E, ac
+    bra  fm_set
+fm_2:
+    ld   2, ac                  ; 15,734 Hz: 3D77h
+    ld   ac, [wv_rep]
+    ld   128, ac
+    ld   ac, [wv_ch]
+    ld   0x77, ac
+    ld   ac, [wv_kcl]
+    ld   0x3D, ac
+    bra  fm_set
+fm_1:
+    ld   1, ac                  ; 31,469 Hz: 7AEDh
+    ld   ac, [wv_rep]
+    clr  ac
+    ld   ac, [wv_ch]
+    ld   0xED, ac
+    ld   ac, [wv_kcl]
+    ld   0x7A, ac
+fm_set:
+    ld   ac, [wv_kch]
+    GOTO skip
+fm_bad:
+    GOTO badwav
+
+; data - the samples: wv_rem = their bytes, the first at chunk + 8
+.chunk
+data:
+    ld   [wv_fmt], ac
+    bne  da_ok
+    GOTO badwav
+da_ok:
+    ld   [wv_hb + 4], ac
+    ld   ac, [wv_rem]
+    ld   [wv_hb + 5], ac
+    ld   ac, [wv_rem + 1]
+    ld   [wv_hb + 6], ac
+    ld   ac, [wv_rem + 2]
+    ld   [wv_hb + 7], ac
+    ld   ac, [wv_rem + 3]
+    ld   [wv_ph], ac
+    ld   ac, [wv_sh]
+    ld   [wv_pl], ac
+    add  8, ac
+    ld   ac, [wv_sl]
+    bcc  da_1
+    ld   [wv_sh], ac
+    inc
+    ld   ac, [wv_sh]
+da_1:
+    GOTO sectors
+
+; sectors - wv_ts = wv_rem / 512 + 1, the bar's whole
+.chunk
+sectors:
+    ld   [wv_rem + 3], ac
+    and  0xFE, ac
+    beq  se_fit
+    ld   0xFF, ac
+    ld   ac, [wv_tsl]
+    ld   ac, [wv_tsh]
+    bra  se_done
+se_fit:
+    ld   [wv_rem + 1], ac
+    shr  ac
+    ld   ac, [wv_tsl]
+    ld   [wv_rem + 2], ac
+    and  1, ac
+    beq  se_1
+    ld   [wv_tsl], ac
+    or   0x80, ac
+    ld   ac, [wv_tsl]
+se_1:
+    ld   [wv_rem + 2], ac
+    shr  ac
+    ld   ac, [wv_tsh]
+    ld   [wv_rem + 3], ac
+    and  1, ac
+    beq  se_2
+    ld   [wv_tsh], ac
+    or   0x80, ac
+    ld   ac, [wv_tsh]
+se_2:
+    ld   [wv_tsl], ac
+    inc
+    ld   ac, [wv_tsl]
+    bne  se_done
+    ld   [wv_tsh], ac
+    inc
+    ld   ac, [wv_tsh]
+se_done:
+    GOTO length
+
+; length - the file's minutes and seconds: wv_rem less a second's bytes
+; until none are left (take), then wv_rem as it was
+.chunk
+length:
+    ld   [wv_rem], ac
+    ld   ac, [wv_tmp]
+    ld   [wv_rem + 1], ac
+    ld   ac, [wv_tmp + 1]
+    ld   [wv_rem + 2], ac
+    ld   ac, [wv_tmp + 2]
+    ld   [wv_rem + 3], ac
+    ld   ac, [wv_tmp + 3]
+    clr  ac
+    ld   ac, [wv_tsec]
+    ld   ac, [wv_tmin]
+ln_loop:
+    ld   [wv_kcl], ac
+    ld   ac, [wv_avl]
+    ld   [wv_kch], ac
+    ld   ac, [wv_avh]
+    CALL take
+    ld   [wv_avl], ac
+    xor  [wv_kcl], ac
+    bne  ln_end
+    ld   [wv_avh], ac
+    xor  [wv_kch], ac
+    bne  ln_end
+    ld   [wv_tsec], ac
+    inc
+    ld   ac, [wv_tsec]
+    xor  60, ac
+    bne  ln_loop
+    ld   ac, [wv_tsec]
+    ld   [wv_tmin], ac
+    inc
+    ld   ac, [wv_tmin]
+    bne  ln_loop
+    ld   255, ac                ; (over 255 minutes)
+    ld   ac, [wv_tmin]
+ln_end:
+    ld   [wv_tmp], ac
+    ld   ac, [wv_rem]
+    ld   [wv_tmp + 1], ac
+    ld   ac, [wv_rem + 1]
+    ld   [wv_tmp + 2], ac
+    ld   ac, [wv_rem + 2]
+    ld   [wv_tmp + 3], ac
+    ld   ac, [wv_rem + 3]
+    GOTO begin
+
+; ------------------------------------------------------------
+; take - wv_av = the smaller of wv_av and wv_rem, and wv_rem less it
+; (a leaf)
+; ------------------------------------------------------------
+.chunk
+take:
+    ld   [wv_rem + 3], ac
+    or   [wv_rem + 2], ac
+    bne  wtk_all
+    ld   [wv_rem + 1], ac
+    sub  [wv_avh], ac
+    bcs  wtk_less
+    bne  wtk_all
+    ld   [wv_rem], ac
+    sub  [wv_avl], ac
+    bcc  wtk_all
+wtk_less:
+    ld   [wv_rem], ac
+    ld   ac, [wv_avl]
+    ld   [wv_rem + 1], ac
+    ld   ac, [wv_avh]
+    clr  ac
+    ld   ac, [wv_rem]
+    ld   ac, [wv_rem + 1]
+    RET
+wtk_all:
+    ld   [wv_rem], ac
+    sub  [wv_avl], ac
+    ld   ac, [wv_rem]
+    bcc  wtk_hi
+    ld   [wv_rem + 1], ac
+    dec
+    ld   ac, [wv_rem + 1]
+    xor  0xFF, ac
+    bne  wtk_hi
+    ld   [wv_rem + 2], ac
+    dec
+    ld   ac, [wv_rem + 2]
+    xor  0xFF, ac
+    bne  wtk_hi
+    ld   [wv_rem + 3], ac
+    dec
+    ld   ac, [wv_rem + 3]
+wtk_hi:
+    ld   [wv_rem + 1], ac
+    sub  [wv_avh], ac
+    ld   ac, [wv_rem + 1]
+    bcc  wtk_ret
+    ld   [wv_rem + 2], ac
+    dec
+    ld   ac, [wv_rem + 2]
+    xor  0xFF, ac
+    bne  wtk_ret
+    ld   [wv_rem + 3], ac
+    dec
+    ld   ac, [wv_rem + 3]
+wtk_ret:
+    RET
+
+; ------------------------------------------------------------
+; begin - the first sector's samples, the speed's text, an empty bar,
+; the counters; then the loop
+; ------------------------------------------------------------
+.chunk
+begin:
+    clr  ac                     ; wv_av = x4200 - wv_s
+    sub  [wv_sl], ac
+    ld   ac, [wv_avl]
+    ld   (SECT >> 8) + 2, ac
+    bcc  bg_1
+    dec
+bg_1:
+    sub  [wv_sh], ac
+    ld   ac, [wv_avh]
+    CALL take
+    CALL ends
+    clr  ac
+    ld   ac, [wv_acl]
+    ld   ac, [wv_ach]
+    ld   ac, [wv_sec]
+    ld   ac, [wv_min]
+    ld   ac, [wv_bal]
+    ld   ac, [wv_bah]
+    ld   ac, [wv_cell]
+    ld   1, ac
+    ld   ac, [wv_new]
+    ld   ac, [wv_draw]
+    ld   [wv_rep], ac
+    xor  1, ac
+    beq  bg_31
+    xor  1 ^ 2, ac
+    beq  bg_15
+    ld   s_r7 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_r7 >> 8, ac
+    bra  bg_rate
+bg_15:
+    ld   s_r15 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_r15 >> 8, ac
+    bra  bg_rate
+bg_31:
+    ld   s_r31 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_r31 >> 8, ac
+bg_rate:
+    ld   ac, [R1]
+    ld   5, ac
+    CALL msg
+    GOTO bar0
+
+.chunk
+bar0:
+    ld   BAR_ROW, ac
+    ld   ac, [CUR_ROW]
+    ld   BAR_COL - 1, ac
+    ld   ac, [CUR_COL]
+    ld   0x5B, ac               ; [
+    CALL con_putc
+    ld   64, ac
+    ld   ac, [wv_k]
+b0_l:
+    ld   0x2D, ac               ; -
+    CALL con_putc
+    ld   [wv_k], ac
+    dec
+    ld   ac, [wv_k]
+    bne  b0_l
+    ld   0x5D, ac               ; ]
+    CALL con_putc
+    CALL frame_poll
+    ld   [FRAME_LO], ac
+    ld   ac, [wv_frm]
+    GOTO loop
+
+; ============================================================
+; the loop: the keys once a frame, the time line when it changed, the
+; next sector when this one is used up, a piece to the ring when there
+; is room for it
+; ============================================================
+.chunk
+loop:
+    CALL frame_poll
+    ld   ac, [wv_g]
+    ld   [FRAME_LO], ac
+    xor  [wv_frm], ac
+    beq  lp_same
+    ld   [FRAME_LO], ac
+    ld   ac, [wv_frm]
+    GOTO keys
+lp_same:
+    ld   [wv_draw], ac
+    beq  lp_feed
+    GOTO time
+lp_feed:
+    ld   [wv_warm], ac
+    beq  lp_cold
+    GOTO warmq
+lp_cold:
+    GOTO feed
+
+; feed - the next sector when this one is used up, else a piece when
+; there is room for it
+.chunk
+feed:
+    ld   [wv_hold], ac
+    bne  lp_room
+    ld   [wv_avl], ac
+    or   [wv_avh], ac
+    bne  lp_room
+    GOTO sector
+lp_room:
+    ld   [wv_new], ac
+    bne  lp_new
+    ld   [wv_g], ac             ; groups from the write pointer on to the
+    sub  124, ac                ; video's, less the one being read
+    sub  [wv_wg], ac
+    bcc  lp_d
+    add  132, ac
+lp_d:
+    sub  ROOM, ac
+    bcs  lp_wait
+    GOTO piece
+lp_wait:
+    GOTO loop
+lp_new:
+    GOTO start
+
+; warmq - the next cluster looked up now if nothing plays yet or the ring
+; is nearly full (under 21 groups free), else later
+.chunk
+warmq:
+    ld   [wv_new], ac
+    bne  wq_go
+    ld   [wv_g], ac
+    sub  124, ac
+    sub  [wv_wg], ac
+    bcc  wq_d
+    add  132, ac
+wq_d:
+    sub  21, ac
+    bcs  wq_go
+    GOTO feed
+wq_go:
+    CALL warm
+    GOTO loop
+
+; warm - the FAT sector of the reader's cluster into the reader's buffer
+.chunk
+warm:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [wv_warm]
+    ld   FSV, y
+    ld   V_SCLUS, x
+    ld   [y,x], ac
+    ld   ac, [wv_tmp]
+    ld   V_SCLUS + 1, x
+    ld   [y,x], ac
+    ld   ac, [wv_tmp + 1]
+    ld   V_SCLUS + 2, x
+    ld   [y,x], ac
+    ld   ac, [wv_tmp + 2]
+    ld   V_SCLUS + 3, x
+    ld   [y,x], ac
+    ld   ac, [wv_tmp + 3]
+    CALL fs_nextc
+    ld   FSV, y
+    ld   V_SCLUS, x
+    ld   [wv_tmp], ac
+    ld   ac, [y,x]
+    ld   V_SCLUS + 1, x
+    ld   [wv_tmp + 1], ac
+    ld   ac, [y,x]
+    ld   V_SCLUS + 2, x
+    ld   [wv_tmp + 2], ac
+    ld   ac, [y,x]
+    ld   V_SCLUS + 3, x
+    ld   [wv_tmp + 3], ac
+    ld   ac, [y,x]
+    LEAVE
+
+; ends - wv_warm = 1 when the sector read was its cluster's last and the
+; file goes on (a leaf)
+.chunk
+ends:
+    clr  ac
+    ld   ac, [wv_warm]
+    ld   FSV, y
+    ld   V_SSEC, x
+    ld   [y,x], ac
+    bne  en_ret
+    ld   [wv_rem], ac
+    or   [wv_rem + 1], ac
+    or   [wv_rem + 2], ac
+    or   [wv_rem + 3], ac
+    beq  en_ret
+    ld   1, ac
+    ld   ac, [wv_warm]
+en_ret:
+    RET
+
+; keys - once a frame
+.chunk
+keys:
+    CALL kbd_scan
+    ld   [KBD_NOW + (K_ESC >> 3)], ac   ; Esc: silence before the DOS
+    and  1 << (K_ESC & 7), ac           ; takes over (menu_poll)
+    bne  ky_poll
+    CALL quiet
+    ld   1, ac
+    ld   ac, [wv_new]
+ky_poll:
+    CALL menu_poll
+    CALL kbd_getc
+    beq  ky_none
+    ld   ac, [wv_key]
+    xor  0x20, ac               ; Space
+    beq  ky_hold
+    xor  0x20 ^ 0x14, ac        ; Right
+    beq  ky_next
+    xor  0x14 ^ 0x0A, ac        ; Enter
+    beq  ky_next
+    xor  0x0A ^ 0x13, ac        ; Left
+    beq  ky_prev
+    xor  0x13 ^ 0x08, ac        ; Backspace
+    beq  ky_prev
+ky_none:
+    GOTO loop
+ky_hold:
+    ld   [wv_hold], ac
+    xor  1, ac
+    ld   ac, [wv_hold]
+    ld   1, ac
+    ld   ac, [wv_draw]
+    GOTO loop
+ky_next:
+    GOTO next
+ky_prev:
+    GOTO prev
+
+.chunk
+next:
+    CALL quiet
+    clr  ac
+    ld   ac, [wv_hold]
+    ld   [wv_n], ac
+    inc
+    ld   ac, [wv_n]
+    xor  [wv_tot], ac
+    bne  nx_go
+    ld   ac, [wv_n]             ; past the last: the first
+nx_go:
+    GOTO show
+
+.chunk
+prev:
+    CALL quiet
+    clr  ac
+    ld   ac, [wv_hold]
+    ld   [wv_n], ac
+    bne  pv_dec
+    ld   [wv_tot], ac           ; before the first: the last
+pv_dec:
+    dec
+    ld   ac, [wv_n]
+    GOTO show
+
+; start - the write pointer two groups ahead of the video
+.chunk
+start:
+    ld   0x50, y
+    ld   [y,x], ac
+    sub  122, ac                ; the group + 2
+    ld   ac, [wv_wg]
+    sub  132, ac
+    bcs  st_in
+    ld   ac, [wv_wg]
+st_in:
+    ld   0xF0, ac               ; x5DF0 + 4 a group
+    ld   ac, [wv_dl]
+    ld   RING_HI, ac
+    ld   ac, [wv_dh]
+    ld   [wv_wg], ac
+    ld   ac, [wv_k]
+    bne  st_add
+    ld   RING_LO, ac            ; group 0 is x5DF3 alone
+    ld   ac, [wv_dl]
+    bra  st_done
+st_add:
+    ld   [wv_dl], ac
+    add  4, ac
+    ld   ac, [wv_dl]
+    bcc  st_n
+    ld   [wv_dh], ac
+    inc
+    ld   ac, [wv_dh]
+st_n:
+    ld   [wv_k], ac
+    dec
+    ld   ac, [wv_k]
+    bne  st_add
+st_done:
+    clr  ac
+    ld   ac, [wv_new]
+    GOTO loop
+
+; sector - the next 512 bytes of the file, or the end
+.chunk
+sector:
+    clr  ac
+    ld   ac, [wv_avl]
+    ld   2, ac
+    ld   ac, [wv_avh]
+    CALL take
+    ld   [wv_avl], ac
+    or   [wv_avh], ac
+    beq  sc_end
+    clr  ac
+    ld   ac, [R4]
+    ld   ac, [wv_sl]
+    ld   SECT >> 8, ac
+    ld   ac, [R5]
+    ld   ac, [wv_sh]
+    CALL fs_read
+    bne  sc_end
+    CALL ends
+    GOTO bar
+sc_end:
+    clr  ac
+    ld   ac, [wv_avl]
+    ld   ac, [wv_avh]
+    GOTO finish
+
+; bar - 64 cells for the file's sectors: one more sector read
+.chunk
+bar:
+    ld   [wv_bal], ac
+    add  64, ac
+    ld   ac, [wv_bal]
+    bcc  br_cmp
+    ld   [wv_bah], ac
+    inc
+    ld   ac, [wv_bah]
+br_cmp:
+    ld   [wv_bah], ac
+    sub  [wv_tsh], ac
+    bcs  br_done
+    bne  br_cell
+    ld   [wv_bal], ac
+    sub  [wv_tsl], ac
+    bcs  br_done
+br_cell:
+    ld   [wv_bal], ac
+    sub  [wv_tsl], ac
+    ld   ac, [wv_bal]
+    bcc  br_h
+    ld   [wv_bah], ac
+    dec
+    ld   ac, [wv_bah]
+br_h:
+    ld   [wv_bah], ac
+    sub  [wv_tsh], ac
+    ld   ac, [wv_bah]
+    ld   [wv_cell], ac
+    xor  64, ac
+    beq  br_cmp
+    ld   BAR_ROW, ac
+    ld   ac, [CUR_ROW]
+    ld   [wv_cell], ac
+    add  BAR_COL, ac
+    ld   ac, [CUR_COL]
+    ld   [wv_cell], ac
+    inc
+    ld   ac, [wv_cell]
+    ld   0xA0, ac               ; a filled cell (an inverse space)
+    CALL con_putc
+    bra  br_cmp
+br_done:
+    GOTO loop
+
+; piece - the next piece to the ring: silence while paused, else up to
+; wv_ch of the sector's samples
+.chunk
+piece:
+    ld   [wv_hold], ac
+    beq  pc_data
+    clr  ac
+    ld   ac, [wv_ql]
+    ld   ac, [wv_cnt]
+    ld   QUIET >> 8, ac
+    ld   ac, [wv_qh]
+    ld   1, ac
+    ld   ac, [wv_rp]
+    CALL copy
+    GOTO loop
+pc_data:
+    ld   [wv_avh], ac
+    bne  pc_full
+    ld   [wv_ch], ac
+    beq  pc_av
+    ld   [wv_avl], ac
+    sub  [wv_ch], ac
+    bcs  pc_av
+pc_full:
+    ld   [wv_ch], ac
+    bra  pc_n
+pc_av:
+    ld   [wv_avl], ac
+pc_n:
+    ld   ac, [wv_cnt]
+    ld   ac, [wv_t]
+    bne  pc_sub
+    ld   [wv_avh], ac           ; 256 of them
+    dec
+    ld   ac, [wv_avh]
+    bra  pc_go
+pc_sub:
+    ld   [wv_avl], ac
+    sub  [wv_t], ac
+    ld   ac, [wv_avl]
+    bcc  pc_go
+    ld   [wv_avh], ac
+    dec
+    ld   ac, [wv_avh]
+pc_go:
+    ld   [wv_sl], ac
+    ld   ac, [wv_ql]
+    ld   [wv_sh], ac
+    ld   ac, [wv_qh]
+    ld   [wv_rep], ac
+    ld   ac, [wv_rp]
+    CALL copy
+    ld   [wv_ql], ac
+    ld   ac, [wv_sl]
+    ld   [wv_qh], ac
+    ld   ac, [wv_sh]
+    GOTO tick
+
+; ------------------------------------------------------------
+; copy - wv_cnt bytes (0 = 256) from wv_qh:wv_ql to the ring at the
+; write pointer, each wv_rp times; then the pointer's group (a leaf)
+; ------------------------------------------------------------
+.chunk
+copy:
+    ld   [wv_qh], y
+    ld   [wv_ql], x
+    ld   [y,x], ac
+    ld   ac, [wv_smp]
+    ld   [wv_rp], ac
+    ld   ac, [wv_kk]
+cp_w:
+    ld   [wv_dh], y
+    ld   [wv_dl], x
+    ld   [wv_smp], ac
+    ld   ac, [y,x]
+    ld   [wv_dl], ac
+    inc
+    ld   ac, [wv_dl]
+    bne  cp_n
+    ld   [wv_dh], ac
+    inc
+    ld   ac, [wv_dh]
+    xor  0x60, ac
+    bne  cp_n
+    ld   RING_HI, ac            ; around: x5DF3
+    ld   ac, [wv_dh]
+    ld   RING_LO, ac
+    ld   ac, [wv_dl]
+cp_n:
+    ld   [wv_kk], ac
+    dec
+    ld   ac, [wv_kk]
+    bne  cp_w
+    ld   [wv_ql], ac
+    inc
+    ld   ac, [wv_ql]
+    bne  cp_s
+    ld   [wv_qh], ac
+    inc
+    ld   ac, [wv_qh]
+cp_s:
+    ld   [wv_cnt], ac
+    dec
+    ld   ac, [wv_cnt]
+    bne  copy
+    ld   [wv_dl], ac            ; the group: (pointer - x5DF0) / 4
+    sub  0xF0, ac
+    shr  ac
+    shr  ac
+    ld   ac, [wv_wg]
+    ld   [wv_dh], ac
+    bcc  cp_g
+    dec
+cp_g:
+    sub  RING_HI, ac
+    beq  cp_ret
+    xor  1, ac
+    beq  cp_64
+    ld   [wv_wg], ac
+    add  128, ac
+    bra  cp_put
+cp_64:
+    ld   [wv_wg], ac
+    add  64, ac
+cp_put:
+    ld   ac, [wv_wg]
+cp_ret:
+    RET
+
+; tick - wv_t (0 = 256) more sample bytes: the seconds played
+.chunk
+tick:
+    ld   [wv_t], ac
+    bne  tc_add
+    ld   [wv_ach], ac
+    inc
+    ld   ac, [wv_ach]
+    bra  tc_cmp
+tc_add:
+    add  [wv_acl], ac
+    ld   ac, [wv_acl]
+    bcc  tc_cmp
+    ld   [wv_ach], ac
+    inc
+    ld   ac, [wv_ach]
+tc_cmp:
+    ld   [wv_ach], ac
+    sub  [wv_kch], ac
+    bcs  tc_no
+    bne  tc_sec
+    ld   [wv_acl], ac
+    sub  [wv_kcl], ac
+    bcs  tc_no
+tc_sec:
+    ld   [wv_acl], ac
+    sub  [wv_kcl], ac
+    ld   ac, [wv_acl]
+    bcc  tc_h
+    ld   [wv_ach], ac
+    dec
+    ld   ac, [wv_ach]
+tc_h:
+    ld   [wv_ach], ac
+    sub  [wv_kch], ac
+    ld   ac, [wv_ach]
+    ld   1, ac
+    ld   ac, [wv_draw]
+    ld   [wv_sec], ac
+    inc
+    ld   ac, [wv_sec]
+    xor  60, ac
+    bne  tc_no
+    ld   ac, [wv_sec]
+    ld   [wv_min], ac
+    inc
+    ld   ac, [wv_min]
+tc_no:
+    GOTO loop
+
+; time - row 7: "m:ss of m:ss", and "paused" while it is
+.chunk
+time:
+    clr  ac
+    ld   ac, [wv_draw]
+    ld   7, ac
+    ld   ac, [CUR_ROW]
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   [wv_min], ac
+    CALL con_dec8
+    ld   [wv_sec], ac
+    CALL dec2
+    ld   s_of & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_of >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [wv_tmin], ac
+    CALL con_dec8
+    ld   [wv_tsec], ac
+    CALL dec2
+    ld   [wv_hold], ac
+    bne  tm_hold
+    ld   s_go & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_go >> 8, ac
+    bra  tm_put
+tm_hold:
+    ld   s_hold & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hold >> 8, ac
+tm_put:
+    ld   ac, [R1]
+    CALL con_puts
+    GOTO loop
+
+; dec2 - ":" and AC (0-99) as two digits
+.chunk
+dec2:
+    PUSH_LINK
+    ld   ac, [wv_t]
+    ld   0x3A, ac
+    CALL con_putc
+    ld   0x30, ac
+    ld   ac, [wv_d]
+d2_l:
+    ld   [wv_t], ac
+    sub  10, ac
+    bcs  d2_o
+    ld   ac, [wv_t]
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    bra  d2_l
+d2_o:
+    ld   [wv_d], ac
+    CALL con_putc
+    ld   [wv_t], ac
+    add  0x30, ac
+    CALL con_putc
+    LEAVE
+
+; ------------------------------------------------------------
+; finish - the file's end: a piece of silence after the last samples,
+; wait until the video is in it, the whole ring silent, the next file or
+; (after the last) back
+; ------------------------------------------------------------
+.chunk
+finish:
+    ld   [wv_new], ac
+    bne  fn_quiet
+fn_room:
+    CALL frame_poll             ; room for a piece of silence after the
+    sub  124, ac                ; last samples
+    sub  [wv_wg], ac
+    bcc  fn_r
+    add  132, ac
+fn_r:
+    sub  ROOM, ac
+    bcs  fn_room
+    clr  ac
+    ld   ac, [wv_ql]
+    ld   ac, [wv_cnt]
+    ld   QUIET >> 8, ac
+    ld   ac, [wv_qh]
+    ld   1, ac
+    ld   ac, [wv_rp]
+    CALL copy
+fn_wait:
+    CALL frame_poll             ; until the video is in that silence
+    sub  124, ac
+    sub  [wv_wg], ac
+    bcc  fn_d
+    add  132, ac
+fn_d:
+    sub  100, ac
+    bcs  fn_wait
+fn_quiet:
+    CALL quiet
+    GOTO after
+
+.chunk
+after:
+    ld   [wv_n], ac
+    inc
+    ld   ac, [wv_n]
+    xor  [wv_tot], ac
+    beq  af_last
+    GOTO show
+af_last:
+    ld   MENU_BLK >> 8, y       ; back, as menu_poll goes (a program that
+    ld   MB_MAGIC, x            ; is done)
+    ld   [y,x], ac
+    xor  0x4D, ac               ; "M"
+    bne  af_stay
+    ld   MB_WHY, x
+    ld   WHY_NEXT, ac
+    ld   ac, [y,x]
+    jmp  MB_EXIT
+af_stay:
+    clr  ac                     ; no DOS to go back to: from the first again
+    ld   ac, [wv_n]
+    GOTO show
+
+; badwav - not a file the program plays: say so for 2.5 s, the next file
+.chunk
+badwav:
+    ld   s_not & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_not >> 8, ac
+    ld   ac, [R1]
+    ld   5, ac
+    CALL msg
+    ld   150, ac
+    CALL wait_frames
+    GOTO after
+
+; ------------------------------------------------------------
+; fail - the message at R1:R0 on text row 3, then wait for Esc
+; ------------------------------------------------------------
+.chunk
+fail:
+    ld   3, ac
+    CALL msg
+fl_loop:
+    ld   1, ac
+    CALL wait_frames
+    CALL kbd_scan
+    CALL menu_poll
+    bra  fl_loop
+
+; ============================================================
+; data
+; ============================================================
+.chunk
+s_title:
+    #d "PLACARD SOUND PLAYER", 0x00
+s_dir:
+    #d "SOUNDS", 0x00
+s_of:
+    #d " of ", 0x00
+s_go:
+    #d "         ", 0x00
+s_hold:
+    #d "   paused", 0x00
+s_nodir:
+    #d "There is no SOUNDS folder on the card.  Esc: exit", 0x00
+s_none:
+    #d "There are no .WAV files in this folder.  Esc: exit", 0x00
+s_bad:
+    #d "The card could not be read.  Esc: exit", 0x00
+.chunk
+s_r31:
+    #d "31.5 kHz                             ", 0x00
+s_r15:
+    #d "15.7 kHz                             ", 0x00
+s_r7:
+    #d "7.9 kHz                              ", 0x00
+s_not:
+    #d "Not a WAV file with 8 bits, 1 channel", 0x00
+.chunk
+s_keys1:
+    #d "Space: pause   Right or Enter: next   Left or Backspace: the one before", 0x00
+s_keys2:
+    #d "Esc: exit", 0x00

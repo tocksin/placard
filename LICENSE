@@ -76,3 +76,7 @@ Third-party material, under its owners' terms:
                     Mozart and Daniel Büchele, CC BY 2.0, and one by
                     NASA (public domain); who made which, and the
                     links, are in docs/software/PHOTOS.md
+    sdcard/SOUNDS/HELLO.WAV
+                    speech made by the espeak-ng program (its output is
+                    not covered by its license); the words are this
+                    project's

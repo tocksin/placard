@@ -45,7 +45,9 @@
 ;   x5D15-x5D18  Pinboard (pinboard.vm): the clock (3) and the display's
 ;                           mode, kept while a program runs
 ;   x5D19        MB_PHOTO   "V": Pinboard's Files card runs the photo
-;                           viewer (photo.masm) on a picture
+;                           viewer (photo.masm) on a picture; "S": the
+;                           sound player (wave.masm) on a .WAV file,
+;                           which uses MB_PCLUS and MB_PN the same way
 ;   x5D1A        MB_PWIDE   the viewer's rows' mode byte, 0 = not chosen
 ;   x5D1B-x5D1E  MB_PCLUS   that picture's folder (its first cluster)
 ;   x5D1F        MB_PN      its number among the folder's .PIC files
@@ -66,7 +68,7 @@
 ;
 ; placard_lib.asm includes this file; its code is at MENU_CODE (xEA00).
 ;
-; Date: 11/21/2026
+; Date: 11/22/2026
 ; ============================================================
 
 MENU_BLK  = 0x5D00

@@ -24,7 +24,7 @@
 \ front (KEYTAB) and the clicks on it (CLICKTAB: RC, RR = the cell in the
 \ card).
 \
-\ Date: 11/21/2026
+\ Date: 11/22/2026
 \ ============================================================
 
 RAMCALLS
@@ -187,7 +187,7 @@ CONST MB_SEL 0x5D13
 CONST MB_TOP 0x5D14
 CONST MB_T 0x5D15       \ 3: the clock, kept while a program runs
 CONST MB_DMODE 0x5D18   \ and the display chosen
-CONST MB_PHOTO 0x5D19   \ 86 ("V"): the photo viewer shows a picture from Files
+CONST MB_PHOTO 0x5D19   \ 86 ("V"): the photo viewer shows a picture from Files; 83 ("S"): the sound player plays a sound
 CONST MB_PWIDE 0x5D1A   \ its rows' mode byte (0: it asks which)
 CONST MB_PCLUS 0x5D1B   \ 4: the picture's folder
 CONST MB_PN 0x5D1F      \ and its number among the folder's .PIC files
@@ -419,6 +419,7 @@ BYTES K-EMSG c"Error" ;
    DROP 0 NL C@ NAMEBUF + C! ;
 : PLC? ( ent -- f ) DUP 8 + C@ 80 = OVER 9 + C@ 76 = AND SWAP 10 + C@ 67 = AND ;
 : PIC? ( ent -- f ) DUP 8 + C@ 80 = OVER 9 + C@ 73 = AND SWAP 10 + C@ 67 = AND ;
+: WAV? ( ent -- f ) DUP 8 + C@ 87 = OVER 9 + C@ 65 = AND SWAP 10 + C@ 86 = AND ;
 : DIR? ( ent -- f ) 11 + C@ 16 AND ;
 : ROOT? ( -- f ) DCLUS @ DCLUS 2 + @ OR 0= ;
 : DIR-READ ( -- )
@@ -746,28 +747,34 @@ BYTES E-BINM c"Not a text file" ;
    ROOT? IF SELF MB_PARENT 13 CMOVE THEN
    LEAVE-DESK NAMEBUF R0 ! 0 0x800C SYS DROP ;
 : F-RUN ( -- ) 0 MB_PHOTO C! F-GO ;
-\ A picture (.PIC): the photo viewer, PHOTO.PLC in the card's root, is run
-\ as a program is.  The menu block tells it the folder and which of the
-\ folder's pictures; it comes back to Pinboard, and F-INIT to the folder
+\ A picture (.PIC) or a sound (.WAV): the photo viewer or the sound
+\ player, PHOTO.PLC or WAVE.PLC in the card's root, is run as a program
+\ is.  The menu block tells it the folder and which of the folder's
+\ files of that kind (MB_PHOTO: 86 "V" a picture, 83 "S" a sound); it
+\ comes back to Pinboard, and F-INIT to the folder
 BYTES P-NAME "PHOTO.PLC" 0 ;
-BYTES P-NONE c"PHOTO.PLC is not on the card" ;
-: F-PIC ( -- )
-   E-GUARD IF EXIT THEN
+BYTES W-NAME "WAVE.PLC" 0 ;
+BYTES P-NONE c"Its program is not on the card" ;
+: KIND? ( ent -- f ) MB_PHOTO C@ 86 = IF PIC? ELSE WAV? THEN ;
+: F-VIEW ( name kind -- )
+   E-GUARD IF DROP DROP EXIT THEN
+   MB_PHOTO C! >R
    0 0 BEGIN DUP F-SEL C@ < WHILE
-      DUP ENT DUP PIC? SWAP DIR? 0= AND IF SWAP 1+ SWAP THEN
+      DUP ENT DUP KIND? SWAP DIR? 0= AND IF SWAP 1+ SWAP THEN
    1+ REPEAT DROP MB_PN C!
    DCLUS MB_PCLUS 4 CMOVE
-   {fs_root} SYS0 DROP P-NAME R0 ! {fs_open} SYS0 IF
-      MB_PCLUS DCLUS 4 CMOVE P-NONE F-MSG ! 0 UPDATE EXIT THEN
+   {fs_root} SYS0 DROP R@ R0 ! {fs_open} SYS0 IF
+      RDROP 0 MB_PHOTO C! MB_PCLUS DCLUS 4 CMOVE P-NONE F-MSG ! 0 UPDATE EXIT THEN
    0 MB_DCLUS ! 0 MB_DCLUS 2 + !
    DMODE C@ IF 0x87 MB_PWIDE C! THEN
-   86 MB_PHOTO C! P-NAME NAMEBUF 10 CMOVE F-GO ;
+   R> NAMEBUF 10 CMOVE F-GO ;
 : F-OPEN ( -- )
    F-N C@ 0= IF EXIT THEN
    F-SEL C@ ENT DUP ENT>NAME
    DUP DIR? IF DROP F-CD EXIT THEN
    DUP PLC? IF DROP F-RUN EXIT THEN
-   DUP PIC? IF DROP F-PIC EXIT THEN
+   DUP PIC? IF DROP P-NAME 86 F-VIEW EXIT THEN
+   DUP WAV? IF DROP W-NAME 83 F-VIEW EXIT THEN
    E-OPEN ;
 : F-KEY ( key -- )
    DUP 17 = IF F-SEL C@ IF F-SEL C@ 1- F-MOVE THEN THEN
@@ -791,7 +798,7 @@ BYTES P-NONE c"PHOTO.PLC is not on the card" ;
    MB_MENU C@ 80 = IF
       MB_SEL C@ F-SEL C! MB_TOP C@ F-TOP C!
       MB_T C@ HH C! MB_T 1+ C@ MM C! MB_T 2 + C@ SS C!
-      MB_PHOTO C@ 86 = IF              \ back from a picture: its folder
+      MB_PHOTO C@ IF                   \ back from a picture or a sound: its folder
          MB_PCLUS DCLUS 4 CMOVE MB_PCLUS MB_DCLUS 4 CMOVE THEN
    ELSE 0 F-SEL C! 0 F-TOP C! 0 HH C! 0 MM C! 0 SS C! THEN
    0 MB_PHOTO C! 0 MB_MENU C! 0 F-MSG ! DIR-READ

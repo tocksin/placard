@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-11-11
+Date: 2026-11-22
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -292,6 +292,10 @@ a Python model of every sound, sample for sample.
 For music, `src/scripts/placard_mus.masm` is a four-voice SID-style player
 (patterns, instruments, envelopes, effects, a fifth voice for sound effects)
 that a program includes instead of the driver: [MUSIC.md](MUSIC.md).
+
+A third way to fill the buffer is from a file: the sound player reads an
+8-bit WAV recording from the SD card while it plays, at the full line
+rate or a half or a quarter of it ([WAVE.md](../software/WAVE.md)).
 
 ### By hand
 
