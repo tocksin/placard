@@ -14,8 +14,17 @@
 ; rate picks one of three speeds:
 ;
 ;     31,469 Hz   every sample once      (a rate of 23,552 Hz or more)
-;     15,734 Hz   every sample twice     (11,776 Hz or more)
-;      7,867 Hz   every sample 4 times   (less)
+;     15,734 Hz   2 lines a sample       (11,776 Hz or more)
+;      7,867 Hz   4 lines a sample       (less)
+;
+; At the two slower speeds the lines between two samples get the values
+; between them (a straight line from one sample to the next: the halfway
+; value, or the three quarter steps), not the sample again.  Holding a
+; sample for 2 or 4 lines makes steps whose buzz is in the range the ear
+; hears (a 2 kHz tone at 15,734 Hz: a 13.7 kHz tone a seventh as strong
+; beside it) and the output filter is too gentle to take out; the line
+; between the samples brings it down to about a thirty-fifth.  A file's
+; first sample is come to from silence (80h) the same way.
 ;
 ; A file at any other rate plays at the nearest of the three, so faster
 ; or slower than it was recorded (32,000 Hz: 1.7 % slow).  gen_wave.py
@@ -110,7 +119,7 @@ wv_sh   = 0x63
 wv_dl   = 0x64              ; the ring's write pointer (x5DF3-x5FFF)
 wv_dh   = 0x65
 wv_cnt  = 0x66              ; copy: sample bytes to go (0 = 256)
-wv_rep  = 0x67              ; times a sample is written: 1, 2, 4
+wv_rep  = 0x67              ; lines a sample: 1, 2, 4
 wv_kk   = 0x68              ; copy: times to go
 wv_smp  = 0x69              ; copy: the sample
 wv_wg   = 0x6A              ; the write pointer's group, 0-131
@@ -159,6 +168,13 @@ wv_sti  = 0x98              ;   its shift << 4
 wv_sn   = 0x99              ;   its rows on the screen
 wv_sk   = 0x9A              ;   1: its right byte is on the screen too
 wv_fc   = 0x9C              ; 4: the file's first cluster
+wv_fp   = 0x23              ; smooth: half the sample before, rounded down
+wv_cc   = 0x28              ; half the sample, rounded up
+wv_fh   = 0x2F              ; half the sample, rounded down
+wv_fm   = 0x3D              ; half the halfway value, rounded down
+wv_oi   = 0x3E              ; the value to write next: wv_o + 4 ... wv_o + 1
+wv_o    = 0x54              ; +1 to +4: a sample's values, the last one first
+                            ; (x55-x58: the header walk's bytes, free now)
 
 ; scratch that shares wv_hb (the header is read before the file plays)
 wv_wi   = 0x40              ; wave: the point, 0-255
@@ -2517,6 +2533,8 @@ pv_dec:
 ; start - the write pointer two groups ahead of the video
 .chunk
 start:
+    ld   0x40, ac               ; the first sample is come to from silence
+    ld   ac, [wv_fp]
     ld   0x50, y
     ld   [y,x], ac
     sub  122, ac                ; the group + 2
@@ -2680,7 +2698,13 @@ pc_go:
     ld   ac, [wv_qh]
     ld   [wv_rep], ac
     ld   ac, [wv_rp]
+    xor  1, ac
+    bne  pc_sm
     CALL copy
+    bra  pc_kept
+pc_sm:
+    CALL smooth
+pc_kept:
     ld   [wv_ql], ac
     ld   ac, [wv_sl]
     ld   [wv_qh], ac
@@ -2689,7 +2713,8 @@ pc_go:
 
 ; ------------------------------------------------------------
 ; copy - wv_cnt bytes (0 = 256) from wv_qh:wv_ql to the ring at the
-; write pointer, each wv_rp times; then the pointer's group (a leaf)
+; write pointer, each wv_rp times (the samples at 1 line a sample, and
+; silence); then the pointer's group (a leaf)
 ; ------------------------------------------------------------
 .chunk
 copy:
@@ -2734,6 +2759,7 @@ cp_s:
     dec
     ld   ac, [wv_cnt]
     bne  copy
+cp_grp:
     ld   [wv_dl], ac            ; the group: (pointer - x5DF0) / 4
     sub  0xF0, ac
     shr  ac
@@ -2757,6 +2783,87 @@ cp_put:
     ld   ac, [wv_wg]
 cp_ret:
     RET
+
+; ------------------------------------------------------------
+; smooth - copy for 2 or 4 lines a sample (wv_rp): wv_cnt samples (0 =
+; 256) from wv_qh:wv_ql to the ring, each as the values on the straight
+; line from the sample before to it, the sample itself last (a leaf)
+;
+; The halfway value of a and b is floor(a / 2) + ceil(b / 2), which is
+; (a + b) / 2 rounded and never over 255; ceil(b / 2) = b - floor(b / 2).
+; 4 lines: the halfway value m, then halfway from the sample before to m
+; and from m to the sample.
+; ------------------------------------------------------------
+.chunk
+smooth:
+    ld   [wv_qh], y
+    ld   [wv_ql], x
+    ld   [y,x], ac
+    ld   ac, [wv_o + 1]         ; the sample: written last
+    shr  ac
+    ld   ac, [wv_fh]
+    ld   [wv_o + 1], ac
+    sub  [wv_fh], ac
+    ld   ac, [wv_cc]
+    add  [wv_fp], ac            ; halfway
+    ld   ac, [wv_o + 2]
+    ld   [wv_rp], ac
+    xor  2, ac
+    beq  sm_go
+    ld   [wv_o + 2], ac         ; 4 lines: halfway is the 2nd of them
+    ld   ac, [wv_o + 3]
+    shr  ac
+    ld   ac, [wv_fm]
+    add  [wv_cc], ac
+    ld   ac, [wv_o + 2]         ; three quarters
+    ld   [wv_o + 3], ac
+    sub  [wv_fm], ac
+    add  [wv_fp], ac
+    ld   ac, [wv_o + 4]         ; a quarter
+sm_go:
+    ld   [wv_fh], ac
+    ld   ac, [wv_fp]
+    ld   [wv_rp], ac
+    add  wv_o, ac
+    ld   ac, [wv_oi]
+sm_w:
+    ld   [wv_oi], x
+    ld   [x], ac
+    ld   [wv_dh], y
+    ld   [wv_dl], x
+    ld   ac, [y,x]
+    ld   [wv_dl], ac
+    inc
+    ld   ac, [wv_dl]
+    bne  sm_n
+    ld   [wv_dh], ac
+    inc
+    ld   ac, [wv_dh]
+    xor  0x60, ac
+    bne  sm_n
+    ld   RING_HI, ac            ; around: x5DF3
+    ld   ac, [wv_dh]
+    ld   RING_LO, ac
+    ld   ac, [wv_dl]
+sm_n:
+    ld   [wv_oi], ac
+    dec
+    ld   ac, [wv_oi]
+    xor  wv_o, ac
+    bne  sm_w
+    ld   [wv_ql], ac
+    inc
+    ld   ac, [wv_ql]
+    bne  sm_s
+    ld   [wv_qh], ac
+    inc
+    ld   ac, [wv_qh]
+sm_s:
+    ld   [wv_cnt], ac
+    dec
+    ld   ac, [wv_cnt]
+    bne  smooth
+    GOTO cp_grp
 
 ; tick - wv_t (0 = 256) more sample bytes: the seconds played
 .chunk

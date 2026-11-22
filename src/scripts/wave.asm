@@ -19,8 +19,17 @@
 ; rate picks one of three speeds:
 ;
 ;     31,469 Hz   every sample once      (a rate of 23,552 Hz or more)
-;     15,734 Hz   every sample twice     (11,776 Hz or more)
-;      7,867 Hz   every sample 4 times   (less)
+;     15,734 Hz   2 lines a sample       (11,776 Hz or more)
+;      7,867 Hz   4 lines a sample       (less)
+;
+; At the two slower speeds the lines between two samples get the values
+; between them (a straight line from one sample to the next: the halfway
+; value, or the three quarter steps), not the sample again.  Holding a
+; sample for 2 or 4 lines makes steps whose buzz is in the range the ear
+; hears (a 2 kHz tone at 15,734 Hz: a 13.7 kHz tone a seventh as strong
+; beside it) and the output filter is too gentle to take out; the line
+; between the samples brings it down to about a thirty-fifth.  A file's
+; first sample is come to from silence (80h) the same way.
 ;
 ; A file at any other rate plays at the nearest of the three, so faster
 ; or slower than it was recorded (32,000 Hz: 1.7 % slow).  gen_wave.py
@@ -115,7 +124,7 @@ wv_sh   = 0x63
 wv_dl   = 0x64              ; the ring's write pointer (x5DF3-x5FFF)
 wv_dh   = 0x65
 wv_cnt  = 0x66              ; copy: sample bytes to go (0 = 256)
-wv_rep  = 0x67              ; times a sample is written: 1, 2, 4
+wv_rep  = 0x67              ; lines a sample: 1, 2, 4
 wv_kk   = 0x68              ; copy: times to go
 wv_smp  = 0x69              ; copy: the sample
 wv_wg   = 0x6A              ; the write pointer's group, 0-131
@@ -164,6 +173,13 @@ wv_sti  = 0x98              ;   its shift << 4
 wv_sn   = 0x99              ;   its rows on the screen
 wv_sk   = 0x9A              ;   1: its right byte is on the screen too
 wv_fc   = 0x9C              ; 4: the file's first cluster
+wv_fp   = 0x23              ; smooth: half the sample before, rounded down
+wv_cc   = 0x28              ; half the sample, rounded up
+wv_fh   = 0x2F              ; half the sample, rounded down
+wv_fm   = 0x3D              ; half the halfway value, rounded down
+wv_oi   = 0x3E              ; the value to write next: wv_o + 4 ... wv_o + 1
+wv_o    = 0x54              ; +1 to +4: a sample's values, the last one first
+                            ; (x55-x58: the header walk's bytes, free now)
 
 ; scratch that shares wv_hb (the header is read before the file plays)
 wv_wi   = 0x40              ; wave: the point, 0-255
@@ -3168,20 +3184,20 @@ dec2:
     ld   ac, [wv_t]
     ld   0xBA, ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   wv_r112, [x]
-    ld   LINK_HI, x
-    ld   wv_r112 >> 8, [x]
-    ld   con_putc >> 8, y
-    jmp  con_putc
-wv_r112:
-    ld   [wv_t], ac
-    ld   LINK_LO, x             ; CALL two
     ld   wv_r113, [x]
     ld   LINK_HI, x
     ld   wv_r113 >> 8, [x]
+    ld   con_putc >> 8, y
+    jmp  con_putc
+wv_r113:
+    ld   [wv_t], ac
+    ld   LINK_LO, x             ; CALL two
+    ld   wv_r114, [x]
+    ld   LINK_HI, x
+    ld   wv_r114 >> 8, [x]
     ld   two >> 8, y
     jmp  two
-wv_r113:
+wv_r114:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 ; ------------------------------------------------------------
@@ -3330,6 +3346,8 @@ ps_n:
 
 #addr 0x1500
 start:
+    ld   0x40, ac               ; the first sample is come to from silence
+    ld   ac, [wv_fp]
     ld   0x50, y
     ld   [y,x], ac
     sub  122, ac                ; the group + 2
@@ -3539,6 +3557,8 @@ pc_go:
     ld   ac, [wv_qh]
     ld   [wv_rep], ac
     ld   ac, [wv_rp]
+    xor  1, ac
+    bne  pc_sm
     ld   LINK_LO, x             ; CALL copy
     ld   wv_r102, [x]
     ld   LINK_HI, x
@@ -3546,6 +3566,16 @@ pc_go:
     ld   copy >> 8, y
     jmp  copy
 wv_r102:
+    bra  pc_kept
+pc_sm:
+    ld   LINK_LO, x             ; CALL smooth
+    ld   wv_r103, [x]
+    ld   LINK_HI, x
+    ld   wv_r103 >> 8, [x]
+    ld   smooth >> 8, y
+    jmp  smooth
+wv_r103:
+pc_kept:
     ld   [wv_ql], ac
     ld   ac, [wv_sl]
     ld   [wv_qh], ac
@@ -3555,7 +3585,8 @@ wv_r102:
 
 ; ------------------------------------------------------------
 ; copy - wv_cnt bytes (0 = 256) from wv_qh:wv_ql to the ring at the
-; write pointer, each wv_rp times; then the pointer's group (a leaf)
+; write pointer, each wv_rp times (the samples at 1 line a sample, and
+; silence); then the pointer's group (a leaf)
 ; ------------------------------------------------------------
 copy:
     ld   [wv_qh], y
@@ -3599,6 +3630,7 @@ cp_s:
     dec
     ld   ac, [wv_cnt]
     bne  copy
+cp_grp:
     ld   [wv_dl], ac            ; the group: (pointer - x5DF0) / 4
     sub  0xF0, ac
     shr  ac
@@ -3624,9 +3656,90 @@ cp_ret:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
-; tick - wv_t (0 = 256) more sample bytes: the seconds played
+; ------------------------------------------------------------
+; smooth - copy for 2 or 4 lines a sample (wv_rp): wv_cnt samples (0 =
+; 256) from wv_qh:wv_ql to the ring, each as the values on the straight
+; line from the sample before to it, the sample itself last (a leaf)
+;
+; The halfway value of a and b is floor(a / 2) + ceil(b / 2), which is
+; (a + b) / 2 rounded and never over 255; ceil(b / 2) = b - floor(b / 2).
+; 4 lines: the halfway value m, then halfway from the sample before to m
+; and from m to the sample.
+; ------------------------------------------------------------
 
 #addr 0x1700
+smooth:
+    ld   [wv_qh], y
+    ld   [wv_ql], x
+    ld   [y,x], ac
+    ld   ac, [wv_o + 1]         ; the sample: written last
+    shr  ac
+    ld   ac, [wv_fh]
+    ld   [wv_o + 1], ac
+    sub  [wv_fh], ac
+    ld   ac, [wv_cc]
+    add  [wv_fp], ac            ; halfway
+    ld   ac, [wv_o + 2]
+    ld   [wv_rp], ac
+    xor  2, ac
+    beq  sm_go
+    ld   [wv_o + 2], ac         ; 4 lines: halfway is the 2nd of them
+    ld   ac, [wv_o + 3]
+    shr  ac
+    ld   ac, [wv_fm]
+    add  [wv_cc], ac
+    ld   ac, [wv_o + 2]         ; three quarters
+    ld   [wv_o + 3], ac
+    sub  [wv_fm], ac
+    add  [wv_fp], ac
+    ld   ac, [wv_o + 4]         ; a quarter
+sm_go:
+    ld   [wv_fh], ac
+    ld   ac, [wv_fp]
+    ld   [wv_rp], ac
+    add  wv_o, ac
+    ld   ac, [wv_oi]
+sm_w:
+    ld   [wv_oi], x
+    ld   [x], ac
+    ld   [wv_dh], y
+    ld   [wv_dl], x
+    ld   ac, [y,x]
+    ld   [wv_dl], ac
+    inc
+    ld   ac, [wv_dl]
+    bne  sm_n
+    ld   [wv_dh], ac
+    inc
+    ld   ac, [wv_dh]
+    xor  0x60, ac
+    bne  sm_n
+    ld   RING_HI, ac            ; around: x5DF3
+    ld   ac, [wv_dh]
+    ld   RING_LO, ac
+    ld   ac, [wv_dl]
+sm_n:
+    ld   [wv_oi], ac
+    dec
+    ld   ac, [wv_oi]
+    xor  wv_o, ac
+    bne  sm_w
+    ld   [wv_ql], ac
+    inc
+    ld   ac, [wv_ql]
+    bne  sm_s
+    ld   [wv_qh], ac
+    inc
+    ld   ac, [wv_qh]
+sm_s:
+    ld   [wv_cnt], ac
+    dec
+    ld   ac, [wv_cnt]
+    bne  smooth
+    ld   cp_grp >> 8, y
+    jmp  cp_grp
+
+; tick - wv_t (0 = 256) more sample bytes: the seconds played
 tick:
     ld   [wv_t], ac
     bne  tc_add
@@ -3678,179 +3791,6 @@ tc_no:
 
 ; time - the time row: "m:ss of m:ss", and "paused" while it is; the pause
 ; button's word
-time:
-    clr  ac
-    ld   ac, [wv_draw]
-    ld   LINK_LO, x             ; CALL p_hide
-    ld   wv_r103, [x]
-    ld   LINK_HI, x
-    ld   wv_r103 >> 8, [x]
-    ld   p_hide >> 8, y
-    jmp  p_hide
-wv_r103:
-    ld   ROW_TIME, ac
-    ld   ac, [CUR_ROW]
-    ld   CARD_L + 2, ac
-    ld   ac, [CUR_COL]
-    ld   [wv_min], ac
-    ld   LINK_LO, x             ; CALL numi
-    ld   wv_r104, [x]
-    ld   LINK_HI, x
-    ld   wv_r104 >> 8, [x]
-    ld   numi >> 8, y
-    jmp  numi
-wv_r104:
-    ld   [wv_sec], ac
-    ld   LINK_LO, x             ; CALL dec2
-    ld   wv_r105, [x]
-    ld   LINK_HI, x
-    ld   wv_r105 >> 8, [x]
-    ld   dec2 >> 8, y
-    jmp  dec2
-wv_r105:
-    ld   s_of & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_of >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL puti
-    ld   wv_r106, [x]
-    ld   LINK_HI, x
-    ld   wv_r106 >> 8, [x]
-    ld   puti >> 8, y
-    jmp  puti
-wv_r106:
-    ld   [wv_tmin], ac
-    ld   LINK_LO, x             ; CALL numi
-    ld   wv_r107, [x]
-    ld   LINK_HI, x
-    ld   wv_r107 >> 8, [x]
-    ld   numi >> 8, y
-    jmp  numi
-wv_r107:
-    ld   [wv_tsec], ac
-    ld   LINK_LO, x             ; CALL dec2
-    ld   wv_r108, [x]
-    ld   LINK_HI, x
-    ld   wv_r108 >> 8, [x]
-    ld   dec2 >> 8, y
-    jmp  dec2
-wv_r108:
-    ld   [wv_hold], ac
-    bne  tm_hold
-    ld   s_go & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_go >> 8, ac
-    bra  tm_put
-tm_hold:
-    ld   s_hold & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_hold >> 8, ac
-tm_put:
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL puti
-    ld   wv_r109, [x]
-    ld   LINK_HI, x
-    ld   wv_r109 >> 8, [x]
-    ld   puti >> 8, y
-    jmp  puti
-wv_r109:
-    ld   time2 >> 8, y
-    jmp  time2
-
-
-#addr 0x1800
-time2:
-    ld   ROW_BTN, ac
-    ld   ac, [CUR_ROW]
-    ld   BTN_H, ac
-    ld   ac, [CUR_COL]
-    ld   [wv_hold], ac
-    bne  t2_hold
-    ld   s_bpause & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_bpause >> 8, ac
-    bra  t2_put
-t2_hold:
-    ld   s_bplay & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_bplay >> 8, ac
-t2_put:
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL con_puts
-    ld   wv_r110, [x]
-    ld   LINK_HI, x
-    ld   wv_r110 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-wv_r110:
-    ld   LINK_LO, x             ; CALL p_show
-    ld   wv_r111, [x]
-    ld   LINK_HI, x
-    ld   wv_r111 >> 8, [x]
-    ld   p_show >> 8, y
-    jmp  p_show
-wv_r111:
-    ld   loop >> 8, y
-    jmp  loop
-; dec2 - ":" and AC (0-99) as two digits
-finish:
-    ld   [wv_new], ac
-    bne  fn_quiet
-fn_room:
-    ld   LINK_LO, x             ; room for a piece of silence after the
-    ld   wv_r114, [x]
-    ld   LINK_HI, x
-    ld   wv_r114 >> 8, [x]
-    ld   frame_poll >> 8, y
-    jmp  frame_poll
-wv_r114:
-    sub  124, ac                ; last samples
-    sub  [wv_wg], ac
-    bcc  fn_r
-    add  132, ac
-fn_r:
-    sub  ROOM, ac
-    bcs  fn_room
-    clr  ac
-    ld   ac, [wv_ql]
-    ld   ac, [wv_cnt]
-    ld   QUIET >> 8, ac
-    ld   ac, [wv_qh]
-    ld   1, ac
-    ld   ac, [wv_rp]
-    ld   LINK_LO, x             ; CALL copy
-    ld   wv_r115, [x]
-    ld   LINK_HI, x
-    ld   wv_r115 >> 8, [x]
-    ld   copy >> 8, y
-    jmp  copy
-wv_r115:
-fn_wait:
-    ld   LINK_LO, x             ; until the video is in that silence
-    ld   wv_r116, [x]
-    ld   LINK_HI, x
-    ld   wv_r116 >> 8, [x]
-    ld   frame_poll >> 8, y
-    jmp  frame_poll
-wv_r116:
-    sub  124, ac
-    sub  [wv_wg], ac
-    bcc  fn_d
-    add  132, ac
-fn_d:
-    sub  100, ac
-    bcs  fn_wait
-fn_quiet:
-    ld   LINK_LO, x             ; CALL quiet
-    ld   wv_r117, [x]
-    ld   LINK_HI, x
-    ld   wv_r117 >> 8, [x]
-    ld   quiet >> 8, y
-    jmp  quiet
-wv_r117:
-    ld   after >> 8, y
-    jmp  after
-
 after:
     ld   [wv_n], ac
     inc
@@ -3880,85 +3820,258 @@ af_stay:
     jmp  show
 
 ; badwav - not a file the program plays: say so for 2.5 s, the next file
-fail:
-    ld   ROW_INFO, ac
-    ld   LINK_LO, x             ; CALL msg
-    ld   wv_r122, [x]
-    ld   LINK_HI, x
-    ld   wv_r122 >> 8, [x]
-    ld   msg >> 8, y
-    jmp  msg
-wv_r122:
-fl_loop:
-    ld   1, ac
-    ld   LINK_LO, x             ; CALL wait_frames
-    ld   wv_r123, [x]
-    ld   LINK_HI, x
-    ld   wv_r123 >> 8, [x]
-    ld   wait_frames >> 8, y
-    jmp  wait_frames
-wv_r123:
-    ld   LINK_LO, x             ; CALL kbd_scan
-    ld   wv_r124, [x]
-    ld   LINK_HI, x
-    ld   wv_r124 >> 8, [x]
-    ld   kbd_scan >> 8, y
-    jmp  kbd_scan
-wv_r124:
-    ld   LINK_LO, x             ; CALL menu_poll
-    ld   wv_r125, [x]
-    ld   LINK_HI, x
-    ld   wv_r125 >> 8, [x]
-    ld   menu_poll >> 8, y
-    jmp  menu_poll
-wv_r125:
-    bra  fl_loop
 
-; ============================================================
-; data
-; ============================================================
-
-#addr 0x1900
-badwav:
+#addr 0x1800
+time:
+    clr  ac
+    ld   ac, [wv_draw]
     ld   LINK_LO, x             ; CALL p_hide
-    ld   wv_r118, [x]
+    ld   wv_r104, [x]
     ld   LINK_HI, x
-    ld   wv_r118 >> 8, [x]
+    ld   wv_r104 >> 8, [x]
     ld   p_hide >> 8, y
     jmp  p_hide
-wv_r118:
-    ld   LINK_LO, x             ; CALL clrinfo
+wv_r104:
+    ld   ROW_TIME, ac
+    ld   ac, [CUR_ROW]
+    ld   CARD_L + 2, ac
+    ld   ac, [CUR_COL]
+    ld   [wv_min], ac
+    ld   LINK_LO, x             ; CALL numi
+    ld   wv_r105, [x]
+    ld   LINK_HI, x
+    ld   wv_r105 >> 8, [x]
+    ld   numi >> 8, y
+    jmp  numi
+wv_r105:
+    ld   [wv_sec], ac
+    ld   LINK_LO, x             ; CALL dec2
+    ld   wv_r106, [x]
+    ld   LINK_HI, x
+    ld   wv_r106 >> 8, [x]
+    ld   dec2 >> 8, y
+    jmp  dec2
+wv_r106:
+    ld   s_of & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_of >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL puti
+    ld   wv_r107, [x]
+    ld   LINK_HI, x
+    ld   wv_r107 >> 8, [x]
+    ld   puti >> 8, y
+    jmp  puti
+wv_r107:
+    ld   [wv_tmin], ac
+    ld   LINK_LO, x             ; CALL numi
+    ld   wv_r108, [x]
+    ld   LINK_HI, x
+    ld   wv_r108 >> 8, [x]
+    ld   numi >> 8, y
+    jmp  numi
+wv_r108:
+    ld   [wv_tsec], ac
+    ld   LINK_LO, x             ; CALL dec2
+    ld   wv_r109, [x]
+    ld   LINK_HI, x
+    ld   wv_r109 >> 8, [x]
+    ld   dec2 >> 8, y
+    jmp  dec2
+wv_r109:
+    ld   [wv_hold], ac
+    bne  tm_hold
+    ld   s_go & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_go >> 8, ac
+    bra  tm_put
+tm_hold:
+    ld   s_hold & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hold >> 8, ac
+tm_put:
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL puti
+    ld   wv_r110, [x]
+    ld   LINK_HI, x
+    ld   wv_r110 >> 8, [x]
+    ld   puti >> 8, y
+    jmp  puti
+wv_r110:
+    ld   time2 >> 8, y
+    jmp  time2
+
+time2:
+    ld   ROW_BTN, ac
+    ld   ac, [CUR_ROW]
+    ld   BTN_H, ac
+    ld   ac, [CUR_COL]
+    ld   [wv_hold], ac
+    bne  t2_hold
+    ld   s_bpause & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bpause >> 8, ac
+    bra  t2_put
+t2_hold:
+    ld   s_bplay & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bplay >> 8, ac
+t2_put:
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   wv_r111, [x]
+    ld   LINK_HI, x
+    ld   wv_r111 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+wv_r111:
+    ld   LINK_LO, x             ; CALL p_show
+    ld   wv_r112, [x]
+    ld   LINK_HI, x
+    ld   wv_r112 >> 8, [x]
+    ld   p_show >> 8, y
+    jmp  p_show
+wv_r112:
+    ld   loop >> 8, y
+    jmp  loop
+; dec2 - ":" and AC (0-99) as two digits
+badwav:
+    ld   LINK_LO, x             ; CALL p_hide
     ld   wv_r119, [x]
     ld   LINK_HI, x
     ld   wv_r119 >> 8, [x]
+    ld   p_hide >> 8, y
+    jmp  p_hide
+wv_r119:
+    ld   LINK_LO, x             ; CALL clrinfo
+    ld   wv_r120, [x]
+    ld   LINK_HI, x
+    ld   wv_r120 >> 8, [x]
     ld   clrinfo >> 8, y
     jmp  clrinfo
-wv_r119:
+wv_r120:
     ld   s_not & 0xFF, ac
     ld   ac, [R0]
     ld   s_not >> 8, ac
     ld   ac, [R1]
     ld   ROW_INFO, ac
     ld   LINK_LO, x             ; CALL msg
-    ld   wv_r120, [x]
-    ld   LINK_HI, x
-    ld   wv_r120 >> 8, [x]
-    ld   msg >> 8, y
-    jmp  msg
-wv_r120:
-    ld   150, ac
-    ld   LINK_LO, x             ; CALL wait_frames
     ld   wv_r121, [x]
     ld   LINK_HI, x
     ld   wv_r121 >> 8, [x]
+    ld   msg >> 8, y
+    jmp  msg
+wv_r121:
+    ld   150, ac
+    ld   LINK_LO, x             ; CALL wait_frames
+    ld   wv_r122, [x]
+    ld   LINK_HI, x
+    ld   wv_r122 >> 8, [x]
     ld   wait_frames >> 8, y
     jmp  wait_frames
-wv_r121:
+wv_r122:
     ld   after >> 8, y
     jmp  after
 ; ------------------------------------------------------------
 ; fail - the message at R1:R0 on the card, then wait for Esc
 ; ------------------------------------------------------------
+
+#addr 0x1900
+finish:
+    ld   [wv_new], ac
+    bne  fn_quiet
+fn_room:
+    ld   LINK_LO, x             ; room for a piece of silence after the
+    ld   wv_r115, [x]
+    ld   LINK_HI, x
+    ld   wv_r115 >> 8, [x]
+    ld   frame_poll >> 8, y
+    jmp  frame_poll
+wv_r115:
+    sub  124, ac                ; last samples
+    sub  [wv_wg], ac
+    bcc  fn_r
+    add  132, ac
+fn_r:
+    sub  ROOM, ac
+    bcs  fn_room
+    clr  ac
+    ld   ac, [wv_ql]
+    ld   ac, [wv_cnt]
+    ld   QUIET >> 8, ac
+    ld   ac, [wv_qh]
+    ld   1, ac
+    ld   ac, [wv_rp]
+    ld   LINK_LO, x             ; CALL copy
+    ld   wv_r116, [x]
+    ld   LINK_HI, x
+    ld   wv_r116 >> 8, [x]
+    ld   copy >> 8, y
+    jmp  copy
+wv_r116:
+fn_wait:
+    ld   LINK_LO, x             ; until the video is in that silence
+    ld   wv_r117, [x]
+    ld   LINK_HI, x
+    ld   wv_r117 >> 8, [x]
+    ld   frame_poll >> 8, y
+    jmp  frame_poll
+wv_r117:
+    sub  124, ac
+    sub  [wv_wg], ac
+    bcc  fn_d
+    add  132, ac
+fn_d:
+    sub  100, ac
+    bcs  fn_wait
+fn_quiet:
+    ld   LINK_LO, x             ; CALL quiet
+    ld   wv_r118, [x]
+    ld   LINK_HI, x
+    ld   wv_r118 >> 8, [x]
+    ld   quiet >> 8, y
+    jmp  quiet
+wv_r118:
+    ld   after >> 8, y
+    jmp  after
+
+fail:
+    ld   ROW_INFO, ac
+    ld   LINK_LO, x             ; CALL msg
+    ld   wv_r123, [x]
+    ld   LINK_HI, x
+    ld   wv_r123 >> 8, [x]
+    ld   msg >> 8, y
+    jmp  msg
+wv_r123:
+fl_loop:
+    ld   1, ac
+    ld   LINK_LO, x             ; CALL wait_frames
+    ld   wv_r124, [x]
+    ld   LINK_HI, x
+    ld   wv_r124 >> 8, [x]
+    ld   wait_frames >> 8, y
+    jmp  wait_frames
+wv_r124:
+    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   wv_r125, [x]
+    ld   LINK_HI, x
+    ld   wv_r125 >> 8, [x]
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
+wv_r125:
+    ld   LINK_LO, x             ; CALL menu_poll
+    ld   wv_r126, [x]
+    ld   LINK_HI, x
+    ld   wv_r126 >> 8, [x]
+    ld   menu_poll >> 8, y
+    jmp  menu_poll
+wv_r126:
+    bra  fl_loop
+
+; ============================================================
+; data
+; ============================================================
 s_title:
     #d " Sound player", 0x00
 s_dir:
@@ -3983,8 +4096,6 @@ s_r15:
     #d "15.7 kHz", 0x00
 s_r7:
     #d "7.9 kHz", 0x00
-s_keys:
-    #d "Space: pause   Left, Right: move   Enter: next   Backspace: last   Esc: close", 0x00
 
 #addr 0x1A00
 s_nodir:
@@ -3995,3 +4106,7 @@ s_bad:
     #d "The card could not be read.  Esc: close", 0x00
 s_not:
     #d "Not a WAV file with 8 bits, 1 channel", 0x00
+
+#addr 0x1B00
+s_keys:
+    #d "Space: pause   Left, Right: move   Enter: next   Backspace: last   Esc: close", 0x00
