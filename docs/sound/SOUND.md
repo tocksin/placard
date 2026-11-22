@@ -167,9 +167,24 @@ a mixer or a capture card, 10 kΩ or more).  It is not a headphone output
 
 One capacitor, 15 nF (C0G or film), from the ladder output to AGND.
 
-- Into a line input (10 kΩ or more) it forms a single pole with the
-  ladder's 1 kΩ: 10.6 kHz (11.7 kHz with a 10 kΩ load).  That softens the
-  31.5 kHz steps.
+- It forms a single pole with the ladder's 1 kΩ in parallel with
+  whatever loads it.  The 10 kΩ bleed resistor is always there, so the
+  corner is 11.7 kHz with nothing else, and 12.7 kHz into a 10 kΩ line
+  input (10.6 kHz would be the capacitor and the ladder alone).  It takes
+  2 dB off at 10 kHz and 8.5 dB off at 31.5 kHz.
+- That is enough for sound at the full rate: the steps of one sample a
+  line put a tone's image between 15.7 and 31.5 kHz, above what the ear
+  hears, and the hold itself already leaves the image of a tone of 3 kHz
+  or less 20 dB or more under it.
+- It is not enough for sound held for 2 or 4 lines a sample (15.7 and
+  7.9 kHz), whose images are in the range the ear hears.  A second
+  passive stage (4.7 kΩ and 3.3 nF were tried in the numbers) takes only
+  1 to 2 dB more off them and 1.5 dB more off 10 kHz, and a corner that
+  switches does no better: one pole falls too slowly to part a tone from
+  an image an octave above it, and a steep filter needs an op-amp.  So
+  the filter stays, and software that plays at a slower rate writes the
+  values between the samples (the sound player does:
+  [WAVE.md](../software/WAVE.md)).  Checked 2026-11-22.
 - A low-impedance load (headphones, 16-32 Ω) would swamp the 1 kΩ and the
   pole would move far above the audio.  That is one more reason the jack is
   a line out only.

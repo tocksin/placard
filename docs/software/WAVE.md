@@ -29,16 +29,50 @@ A plain WAV file with these settings:
 That is the board's own sound ([SOUND.md](../sound/SOUND.md)): the video
 circuit reads one unsigned 8-bit sample on every scan line, 31,469 a
 second, and the file's samples go to the sound buffer as they are.  The
-two slower rates write every sample two or four times.
+two slower rates take two or four lines a sample, and the lines between
+two samples get the values between them (see "The slower rates" below).
 
 | Rate | Card space | Sounds like | CPU for the sound | With the waveform |
 |---|---|---|---|---|
-| 31,469 Hz | 1.9 MB a minute | everything the board's 10.6 kHz output filter passes | 55 % | 63 % |
-| 15,734 Hz | 0.9 MB a minute | AM radio: fine for speech, dull for music | 31 % | 38 % |
-| 7,867 Hz | 0.5 MB a minute | a telephone | 18 % | 26 % |
+| 31,469 Hz | 1.9 MB a minute | everything the board's output filter (about 12 kHz) passes | 55 % | 63 % |
+| 15,734 Hz | 0.9 MB a minute | AM radio: fine for speech, dull for music | 35 % | 42 % |
+| 7,867 Hz | 0.5 MB a minute | a telephone | 22 % | 30 % |
 
 The sound alone is reading the card and feeding the sound buffer.  The
 waveform adds 7 % at any rate, and a mouse that is moving about 2 %.
+
+### The slower rates
+
+Writing a sample two or four times holds it for two or four lines, and
+those steps make a second tone beside every tone in the file: at
+15,734 Hz a 2 kHz tone gets one at 13.7 kHz, at 7,867 Hz one at 5.9 kHz.
+That is the buzz of old sampled sound.  It is where the ear hears it, and
+the board's output filter (one capacitor, about 12 kHz) is too gentle to
+take it out; a second filter stage or a lower corner would take off only
+1 to 2 dB more, so the board stays as it is.
+
+The player draws a straight line from each sample to the next instead:
+at 15,734 Hz the line between two samples gets the value halfway, at
+7,867 Hz the three lines between get the quarter steps.  The first sample
+of a file is come to from silence the same way.
+
+| Rate | A tone of | Its second tone | Held (before) | Straight line (now) |
+|---|---|---|---|---|
+| 15,734 Hz | 1 kHz | 14.7 kHz | 24 dB under it | 44 dB under |
+| 15,734 Hz | 2 kHz | 13.7 kHz | 17 dB | 31 dB |
+| 15,734 Hz | 3 kHz | 12.7 kHz | 13 dB | 23 dB |
+| 7,867 Hz | 1 kHz | 6.9 kHz | 17 dB | 33 dB |
+| 7,867 Hz | 2 kHz | 5.9 kHz | 10 dB | 19 dB |
+| 7,867 Hz | 3 kHz | 4.9 kHz | 4 dB | 8 dB |
+
+(The player's own 8-bit output for a sine, through the board's filter
+into a 10 kΩ line input.)  The straight line also takes a little off the
+top of the file's own range: for a 15,734 Hz file half a dB more at
+3 kHz and 2 dB more at 6 kHz.
+
+It costs 4 % of the CPU at either slower rate (107 clocks a line for the
+copy at 15,734 Hz where holding took 75, and 91 where it took 61 at
+7,867 Hz; the full rate's copy is 102 and has not changed).
 
 The player reads the rate from the file and takes the nearest of the
 three, so a file at another rate plays faster or slower than it was
@@ -183,11 +217,11 @@ the pointer at x4500.
 |---|---|---|
 | Plays | a recording: anything | four voices of its instruments |
 | Rate | 31,469 Hz (or 15,734, 7,867) | 15,734 Hz |
-| CPU | 55 % (31 %, 18 %) for the sound | 20 % |
+| CPU | 55 % (35 %, 22 %) for the sound | 20 % |
 | Card space | 1.9 MB a minute (0.9, 0.5) | 1 to 2 KB a song |
 | The SD card while it plays | in use | free |
 
-A game that wants a recorded tune under it has the half rate's 69 % of
+A game that wants a recorded tune under it has the half rate's 65 % of
 the CPU left, but can't load from the card meanwhile.
 
 ## Test

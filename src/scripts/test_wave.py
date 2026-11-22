@@ -13,7 +13,8 @@ one sample of a file or silence, and which is known exactly.
 
   1. BOOT.CFG = WAVE.PLC, a SOUNDS folder with four .WAV files and a text
      file: the three good files are played whole, in order, sample for
-     sample (31,469 Hz once, 15,734 Hz twice, 8,000 Hz four times each),
+     sample (31,469 Hz once; 15,734 Hz and 8,000 Hz on 2 and 4 lines a
+     sample, the lines between two samples with the values between them),
      with silence and nothing else between them; a header with other
      chunks before "data" is walked; the 16-bit stereo file is named and
      skipped; after the last the DOS is back
@@ -79,6 +80,21 @@ OTHER = (b'LIST' + struct.pack('<I', 26) + b'INFOISFT' + struct.pack('<I', 13) +
          + b'junk' + struct.pack('<I', 3) + b'abc\0')
 
 
+def smooth(data, times):
+    """what the DAC plays for a file at 1, 2 or 4 lines a sample: the
+    values on the straight line from the sample before (silence before
+    the first) to each sample, the sample last (wave.masm: smooth)"""
+    if times == 1:
+        return bytes(data)
+    half = lambda p, c: (p >> 1) + c - (c >> 1)
+    out, p = bytearray(), 0x80
+    for c in data:
+        m = half(p, c)
+        out += bytes([m, c]) if times == 2 else bytes([half(p, m), m, half(m, c), c])
+        p = c
+    return bytes(out)
+
+
 def played(audio, parts):
     """parts = [(name, samples, times)]: where each is in the DAC's samples
     (whole, in order), and that all the rest from the first on is silence.
@@ -86,7 +102,7 @@ def played(audio, parts):
     bad, at, first = [], 0, None
     rest = bytearray(audio)
     for name, data, times in parts:
-        want = bytes(b for b in data for _ in range(times))
+        want = smooth(data, times)
         i = audio.find(want, at)
         if i < 0:
             j = audio.find(want[:64], at)
