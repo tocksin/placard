@@ -180,13 +180,13 @@ PLACARD BASIC
 7424 bytes free
 HI FROM BASIC
 43
-Ready (Ctrl+B: Pinboard)
+Ready (EXIT or Ctrl+B: Pinboard)
 ```
 
 BASIC stays up when the program ends or stops with an error, so its
 output can be read and commands typed (`PRINT A`, `LIST`, `RUN`).  Esc
-stops a running program as always.  **Ctrl+B** at BASIC's prompt, or its
-`DOS` command, comes back to Pinboard: the Editor is in front with the
+stops a running program as always.  **`EXIT`** in BASIC (or `DOS`, or
+Ctrl+B at its prompt) comes back to Pinboard: the Editor is in front with the
 same text and the cursor where it was, the Files card and the clock as
 for any program.
 
@@ -197,6 +197,8 @@ for any program.
   file that no longer fits the Editor leaves it empty.
 - Ctrl+R can't be the key: the keyboard driver gives the Down arrow the
   same code (12h).
+- The launcher's BASIC item starts BASIC with no program; `EXIT` there
+  comes back to Pinboard too, with the Files card in its folder.
 - It needs the ROM's BASIC from 11/22/2026 on.  With an older ROM Ctrl+B
   saves the text and starts BASIC with no program, and `DOS` goes to the
   DOS.
@@ -340,7 +342,7 @@ from the `PHOTOS` folder and from another folder, its one question, the
 picture's bytes on the screen, the next and the one before, coming back to
 the folder in 2 and in 4 colors, and a card with no `PHOTO.PLC`.
 `test_wave.py` checks `.WAV` files from the Files card.  And Ctrl+B: the
-text saved and run in BASIC, a command typed there, Ctrl+B and `DOS` back
+text saved and run in BASIC, a command typed there, Ctrl+B, `EXIT` and `DOS` back
 to the Editor with the text and the cursor, a program in a folder, Esc
 stopping one, a new text named first.
 `--png folder` saves each step's screen.
