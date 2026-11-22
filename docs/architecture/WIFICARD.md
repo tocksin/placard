@@ -1,10 +1,12 @@
 # WiFi expansion card
 
-Date: 2026-11-21
+Date: 2026-11-22
 
 A card for any expansion slot that puts the Placard on a WiFi network: it
 joins a network, opens a TCP connection (plain or TLS), sends and receives
-bytes, and reads the time of day.  It has one chip and one module:
+bytes, and reads the time of day.  Its module also does a web browser's
+work for the Placard ([WEB.md](../software/WEB.md)).  It has one chip and
+one module:
 
 | | Part | Job |
 |---|---|---|
@@ -18,8 +20,8 @@ no surface-mount soldering.  The schematic is `kicad/wifi_card/`
 [BOM_WIFI_CARD.md](../bom/BOM_WIFI_CARD.md).  The main board needs no
 change.
 
-**Where it stands.**  The logic, the driver and the demo program pass in
-simulation.  Nothing has been built: the PLD is not compiled in WinCUPL,
+**Where it stands.**  The logic, the driver, the demo program and the
+browser pass in simulation.  Nothing has been built: the PLD is not compiled in WinCUPL,
 the module's firmware is not compiled or tried on a module, and the board
 is placed but not routed.  "Still to do" at the end lists what is open.
 
@@ -118,7 +120,7 @@ out.
 
 | Command | Request bytes | Reply bytes |
 |---|---|---|
-| 01 INFO | | the firmware's name as text, "PLACARD WIFI 1.0" |
+| 01 INFO | | the firmware's name as text, "PLACARD WIFI 1.1" (1.0 has no browser) |
 | 02 JOIN | network name, 00, password, 00.  With no bytes: join the network the module kept (status 01 if it has none) | |
 | 03 STATE | | state (0 off, 1 joining, 2 joined, 3 failed), the IPv4 address (4 bytes), the signal strength as -dBm |
 | 04 LEAVE | | |
@@ -133,6 +135,61 @@ STATE until the state is 2 or 3.  The module keeps the last network that
 worked in its flash, so the name and password are typed once.  There is
 one connection at a time.  A TLS connection is encrypted, but the firmware
 does not check the server's certificate.
+
+## The browser's commands
+
+Firmware 1.1 adds the commands the browser (`WEB.PLC`,
+[WEB.md](../software/WEB.md)) is made of.  The module fetches a page and
+keeps it as lines of text for the Placard's screen; the Placard asks for
+the lines it shows.  They answer status 02 until a network is joined.
+Numbers of two bytes are low byte first, except a link's number inside a
+line of text.
+
+| Command | Request bytes | Reply bytes |
+|---|---|---|
+| 30 VIEW | columns (20-80), pixel rows a line (8-16), flags (bit 0: fetch the page's pictures) | |
+| 31 GO | the top line of the page being left (2), then the address or the words typed | the page (below) |
+| 32 LINK | the link's number (2), the top line of the page being left (2) | the page |
+| 33 BACK | | the page before, with the top line it was left at (01: there is none) |
+| 34 RELOAD | the top line to come back to (2) | the page |
+| 35 INFO | 0 the title, 1 the address, 2 why the page could not be shown | text |
+| 36 ROW | the line (2), the part (0, or the next part of a picture's strip) | a line (below) |
+| 37 IMGLOAD | | fetches the next picture of the page: pictures still to come, the line it went in at (2), the lines it added (2), the page's lines now (2) |
+| 38 LINKINFO | a link's number (2) | its address, text |
+| 39 PICTURE | a link's number (2), 0 for 80 across or 1 for 160 | fetches it for showing alone: the width in bytes, 240.  01: the reason, text |
+| 3A PICDATA | a column | that column's 240 color bytes, top to bottom |
+| 3B PICEND | | the picture's memory is given back |
+
+**The page** reply is 6 bytes: flags (bit 0: pictures still to come, bit
+1: the address is a picture, bit 2: the page is the module's own "can't
+be shown", bit 3: there is a page to go back to), the page's lines (2),
+the pictures to come, and the line to put at the top (2).  A page that
+could not be fetched is still a page: a few lines that say why.
+
+**A line** is one of two things.  First byte 0: text, the line's
+characters (ASCII 20-7E) with marks among them: 01 and two bytes, high
+first, where a link starts (its number); 02 where it ends; 03 and 04
+where bold starts and ends.  A link that goes on in the next line starts
+again there.  First byte 1: a strip of a picture: the first byte column
+of this part, its byte columns, 1 if it is the strip's last part, then
+for each byte column the strip's pixel rows top to bottom, 1 bit a
+pixel, bit 0 the left pixel, 1 = white: the 1 bpp screen's own bytes.  A
+part is at most 250 bytes.
+
+**Link numbers.**  0 and up are the page's links.  8000 and up are its
+pictures (PICTURE shows one alone).  FFFE is "more of this page": a long
+page comes in parts of about 1,200 lines, and LINK FFFE fetches the next.
+FFFF is the page's own address, when that is a picture.
+
+GO, LINK, BACK and RELOAD answer when the page is in: up to 20 seconds
+for a site that is slow, longer through redirects.  IMGLOAD and PICTURE
+take up to 12 seconds.  The Placard waits on READY, so its driver's wait
+is set longer for these (`wf_tmo` in `web.masm`).
+
+The same code runs in the simulators: `src/firmware/wifi_card/host/`
+builds it for the computer, `io_devices.WifiCard(browser=...)` and the
+emulator core's `WifiCard` hand it commands 30-3B, and `test_web.py`
+checks the two sides together.
 
 ## Using the card
 
@@ -239,6 +296,18 @@ SPI slave on IO6 (SCK), IO7 (MOSI), IO5 (MISO) and IO10 (/CS), with READY
 on IO4.  It has **not been compiled or run**; it is written against the
 package's documented calls and will need a pass on a real module.
 
+The browser's part (`browser.cpp`, `html.cpp`, `image.cpp`, with their
+headers, in the same folder) is plain C++ with no Arduino calls, and the
+Arduino build takes it in with the sketch.  That part is tested, as the
+program in `host/` that the simulators run; what the sketch adds to it,
+its `EspNet` (a connection through `WiFiClient` or `WiFiClientSecure`),
+is not.  The browser keeps about 75 KB while it is used (a page's lines,
+its links, 32 KB of picture pixels, 8 addresses to go back to), up to
+40 KB more while a picture is decoded and 38 KB for a picture shown
+alone at 160 across, beside what the radio and a TLS connection take.
+The ESP32-C3 has 400 KB of RAM; whether all of that fits at once on a
+real module is the first thing to measure.
+
 Load it through the module's USB socket **with the card out of the
 machine**: the module's 5V pin and its USB socket must not both be
 powered.
@@ -261,13 +330,14 @@ powered.
 
 - **WinCUPL.**  Compile `ATF22V10_WIFI.pld` and keep the .jed.
 - **Firmware.**  Compile it, load a module and try the link on a bench
-  before a board is ordered.
+  before a board is ordered.  Then the browser: free memory with a large
+  HTTPS page and its pictures in, and how long real sites take.
 - **Module footprint.**  Check the pin rows, the outline and the antenna
   end against a real module, and how deep the no-copper area must be.
 - **Board.**  Route it with U1 near the fingers (the Q0 line above), tidy
   the reference text, add teardrops, plot the fab files.
 - **Power.**  Measure the machine's 5 V current with the card sending.
 - **Shell.**  None yet.
-- **Software.**  The driver lives in the demo; nothing is in the library,
-  BASIC or Pinboard yet.  The US price of the module was not read (the
+- **Software.**  The driver lives in the demo and in the browser; nothing
+  is in the library or BASIC yet.  The US price of the module was not read (the
   parts list has an estimate).

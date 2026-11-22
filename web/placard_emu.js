@@ -717,11 +717,139 @@ function renderRow(ram, y, fb, revB) {
 // ---------------------------------------------------------------------------
 // The machine
 // ---------------------------------------------------------------------------
+/* ============================================================
+ * The WiFi card (docs/architecture/WIFICARD.md): the SPI port PLD and a
+ * model of the module's firmware, as io_devices.WifiCard has it.
+ *
+ * opts: networks {name: password}; saved [name, password] (the network
+ * the module kept); clock [year - 2000, month, day, hour, minute,
+ * second, weekday]; browser(command, bytes) -> [status, bytes]: the
+ * browser's commands (30 and up), done outside (src/scripts/
+ * pinboard_emu.py gives the module's own code, built for the computer).
+ * Hosts for OPEN are not modeled: it answers 03.
+ * ============================================================ */
+class WifiCard {
+    constructor(opts) {
+        opts = opts || {};
+        this.networks = opts.networks || {};
+        this.saved = opts.saved || null;
+        this.clock = opts.clock || null;
+        this.browser = opts.browser || null;
+        this.delay = opts.delay === undefined ? 2 : opts.delay;
+        this.joinPolls = opts.joinPolls === undefined ? 2 : opts.joinPolls;
+        this.latch = 0x0F;
+        this.miso = 0;
+        this.log = [];
+        this.boot();
+    }
+
+    boot() {
+        this.wait = this.delay * 4;
+        this.reply = null;
+        this.active = false;
+        this.state = 0;                     // 0 off, 1 joining, 2 joined, 3 failed
+        this.joining = 0;
+        this.joinOk = false;
+        if (this.saved) this.join(this.saved[0], this.saved[1]);
+    }
+
+    read(off) {
+        if (off < 0x60) return 0xFF;
+        if (this.wait) this.wait--;
+        const ready = (this.wait || !(this.latch & 8)) ? 0 : 1;
+        return this.miso << 7 | ready << 6 | ((off & 1) ? 0x14 : 0x28) | 0x03;
+    }
+
+    write(off, v) {
+        if (off < 0x60) return;
+        const old = this.latch, now = v & 0x0F;
+        this.latch = now;
+        if (!(now & 8)) {                   // held in reset
+            this.active = false;
+            this.miso = 0;
+            this.wait = 1 << 30;
+            return;
+        }
+        if (!(old & 8)) this.boot();
+        if ((old & 4) && !(now & 4)) {      // /CS falls
+            this.active = !this.wait;
+            this.rx = [];
+            this.bits = 0;
+            this.sh = 0;
+            this.tx = this.reply ? this.reply : [0x52];
+            this.txbit = 0;
+        }
+        if (this.active && !(now & 4)) {
+            if ((old & 1) && !(now & 1)) {  // SCK falls: the next MISO bit
+                const i = this.txbit >> 3, b = this.txbit & 7;
+                this.miso = i < this.tx.length ? (this.tx[i] >> (7 - b)) & 1 : 0;
+                this.txbit++;
+            } else if ((now & 1) && !(old & 1)) {       // SCK rises: MOSI in
+                this.sh = (this.sh << 1 | (now >> 1 & 1)) & 0xFF;
+                if (++this.bits === 8) { this.rx.push(this.sh); this.bits = 0; }
+            }
+        }
+        if ((now & 4) && !(old & 4) && this.active) {   // /CS rises: the transfer ends
+            this.active = false;
+            this.miso = 0;
+            this.wait = this.delay;
+            if (this.reply) this.reply = null;
+            else if (this.rx.length && this.rx[0]) {
+                const n = this.rx.length > 1 ? this.rx[1] : 0;
+                const data = this.rx.slice(2, 2 + n);
+                this.log.push([this.rx[0], data]);
+                const [st, out] = this.command(this.rx[0], data);
+                this.reply = [0x41, st, out.length].concat(Array.from(out));
+            }
+        }
+    }
+
+    join(name, password) {
+        this.state = 1;
+        this.joining = this.joinPolls;
+        this.joinOk = this.networks[name] === password;
+    }
+
+    command(c, d) {
+        const text = (a) => String.fromCharCode.apply(null, a);
+        switch (c) {
+        case 0x01: return [0, Array.from(this.browser ? 'PLACARD WIFI 1.1' : 'PLACARD WIFI 1.0', (ch) => ch.charCodeAt(0))];
+        case 0x02: {
+            if (d.length) {
+                const z = d.indexOf(0);
+                const rest = d.slice(z + 1);
+                const z2 = rest.indexOf(0);
+                this.saved = [text(d.slice(0, z < 0 ? d.length : z)), z < 0 ? '' : text(z2 < 0 ? rest : rest.slice(0, z2))];
+            }
+            if (!this.saved) return [1, []];
+            this.join(this.saved[0], this.saved[1]);
+            return [0, []];
+        }
+        case 0x03: {
+            if (this.state === 1) {
+                if (this.joining) this.joining--;
+                else this.state = this.joinOk ? 2 : 3;
+            }
+            const on = this.state === 2;
+            return [0, [this.state].concat(on ? [192, 168, 1, 77] : [0, 0, 0, 0], [on ? 52 : 0])];
+        }
+        case 0x04: this.state = 0; return [0, []];
+        case 0x10: return [this.state !== 2 ? 2 : d.length < 4 ? 1 : 3, []];
+        case 0x11: case 0x12: return [3, []];
+        case 0x13: return [0, []];
+        case 0x20: return (!this.clock || this.state !== 2) ? [1, []] : [0, this.clock];
+        }
+        if (c >= 0x30 && this.browser) return this.state !== 2 ? [2, []] : this.browser(c, d);
+        return [0xFF, []];
+    }
+}
+
 class Machine {
     constructor() {
         this.ram = new Uint8Array(65536);
         this.rom = new Uint8Array(65536);
         this.io = new SharedPort();
+        this.slots = [null, null, null, null];     // the expansion slots' cards (read(off), write(off, v))
         this.fb = new Uint32Array(640 * 480);
         this.audio = [];              // DAC samples (0-255), one per line, taken by the page
         this.audioMax = 8192;
@@ -849,7 +977,10 @@ class Machine {
         if (s === 1) {
             if ((ad & 0xFF00) === 0x5000) this.d = this.lineRead();
             else if ((ad & 0xFF00) === 0x5200) this.d = this.io.read(ad, this.clocks + clocks);
-            else if ((ad & 0xFD00) === 0x5100) this.d = 0xFF;      // empty expansion slots
+            else if ((ad & 0xFD00) === 0x5100) {                   // the expansion slots (an empty one reads FF)
+                const card = this.slots[((ad & 0x200) ? 1 : 0) + ((ad & 0x80) ? 2 : 0)];
+                this.d = card ? card.read(ad & 0x7F) : 0xFF;
+            }
             else this.d = this.read(ad);
             clocks++;
         }
@@ -892,6 +1023,10 @@ class Machine {
                 ram[ad] = src;
                 if ((ad & 0xFF00) === 0x5000) this.map = src;
                 else if ((ad & 0xFF00) === 0x5200) this.io.write(ad, src, this.clocks + clocks);
+                else if ((ad & 0xFD00) === 0x5100) {
+                    const card = this.slots[((ad & 0x200) ? 1 : 0) + ((ad & 0x80) ? 2 : 0)];
+                    if (card) card.write(ad & 0x7F, src);
+                }
             }
         }
         this.steps++;
@@ -1142,7 +1277,7 @@ const SCANCODES = {
 
 const api = {
     CPU_HZ, LINE, LINES, FRAME, LINE_HZ, us,
-    SnesPad, SdCard, Ps2Mouse, Ps2Keyboard, Ps2Receiver, SharedPort, Machine,
+    SnesPad, SdCard, Ps2Mouse, Ps2Keyboard, Ps2Receiver, SharedPort, WifiCard, Machine,
     renderRow, makeFat16, parseRom, SCANCODES,
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;

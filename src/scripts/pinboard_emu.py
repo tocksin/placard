@@ -14,6 +14,14 @@ inputs  [(frame, kind, value)]: 'press' / 'release' a PS/2 set 2 code
 shots   frames at which the RAM is kept
 returns {frame: RAM bytes (65536)}, and the card image at the end
 
+    run(..., wifi={'slot': 3, 'sites': DIR, 'networks': {name: password},
+                   'saved': [name, password], 'clock': [...]})
+        puts a WiFi card in a slot; the browser's commands are done by
+        the module's own code (wifi_host.py) on the made-up web of DIR
+        (test_web.py), or with 'live': True instead of 'sites' on the
+        real web; with neither the card's module has the 1.0 firmware,
+        which has no browser
+
 screen_png(ram, path) draws a RAM's screen; cells(ram, font) reads the
 80 x 60 characters of a 1 bpp screen back through a font.
 
@@ -45,6 +53,28 @@ m.audioMax = cfg.audio ? 1e9 : 0;
 m.io.kbd = new P.Ps2Keyboard();
 if (cfg.mouse) m.io.mouse = new P.Ps2Mouse();
 m.io.sd = new P.SdCard(new Uint8Array(fs.readFileSync(cfg.card)));
+if (cfg.wifi) {                             // a WiFi card; the browser's commands go to wifi_host
+    const w = cfg.wifi;
+    const to = w.to ? fs.openSync(w.to, 'w') : 0, from = w.to ? fs.openSync(w.from, 'r') : 0;
+    const take = (n) => {
+        const b = Buffer.alloc(n);
+        let got = 0;
+        while (got < n) {
+            const k = fs.readSync(from, b, got, n - got, null);
+            if (!k) throw new Error('wifi_host stopped');
+            got += k;
+        }
+        return b;
+    };
+    m.slots[w.slot - 1] = new P.WifiCard({
+        networks: w.networks, saved: w.saved, clock: w.clock,
+        browser: !w.to ? null : (c, d) => {
+            fs.writeSync(to, Buffer.from([c, d.length].concat(d)));
+            const head = take(2);
+            return [head[0], Array.from(take(head[1]))];
+        },
+    });
+}
 let k = 0, s = 0, goal = null, nextGo = 0;
 const end = cfg.frames * P.FRAME;
 while (m.clocks < end) {
@@ -92,19 +122,32 @@ def rom_image():
     return _rom
 
 
-def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False, audio=False, spc=1, size_kb=None):
+def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False, audio=False, spc=1, size_kb=None, wifi=None):
     tmp = tempfile.mkdtemp()
     p = lambda n: os.path.join(tmp, n)   # noqa: E731
     open(p('rom.bin'), 'wb').write(rom_image())
     open(p('card.img'), 'wb').write(sdimage.make(files, size_kb=size_kb, spc=spc))
     open(p('run.js'), 'w').write(NODE_RUN)
     shots = sorted(set(shots))
-    json.dump({'rom': p('rom.bin'), 'card': p('card.img'), 'frames': frames, 'mouse': mouse, 'px': px, 'revB': rev_b, 'audio': audio,
+    host = None
+    if wifi is not None:
+        import wifi_host
+        wifi = dict(wifi)
+        if wifi.get('sites') or wifi.get('live'):
+            wifi.update({'to': p('to_host'), 'from': p('from_host')})
+            os.mkfifo(wifi['to'])
+            os.mkfifo(wifi['from'])
+            web = ['--live'] if wifi.pop('live', None) else ['--sites', wifi.pop('sites')]
+            host = subprocess.Popen([wifi_host.build()] + web + ['--in', wifi['to'], '--out', wifi['from']])
+    json.dump({'rom': p('rom.bin'), 'card': p('card.img'), 'frames': frames, 'mouse': mouse, 'px': px, 'revB': rev_b, 'audio': audio, 'wifi': wifi,
                'inputs': sorted(inputs, key=lambda i: i[0]), 'shots': shots, 'dir': tmp},
               open(p('cfg.json'), 'w'))
     js = subprocess.run(['node', p('run.js'),
                          os.path.abspath(os.path.join(REPO, 'web', 'placard_emu.js')),
                          p('cfg.json')], capture_output=True, text=True)
+    if host is not None:
+        host.kill()
+        host.wait()
     if js.returncode:
         raise RuntimeError('node: ' + js.stderr)
     rams = {f: open(p('ram%d.bin' % f), 'rb').read() for f in shots if f < frames}
