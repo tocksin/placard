@@ -7,7 +7,7 @@ card's `SOUNDS` folder.  It reads each file from the SD card while it
 plays, so a recording of any length plays from a card: speech, a song,
 any number of instruments.
 
-![The player in the emulator, half way through MUSIC.WAV](wave_player.png)
+![The player in the emulator, part way through BRAHMS.WAV](wave_player.png)
 
 ## The file
 
@@ -63,9 +63,17 @@ So does any sound editor that exports "WAV, unsigned 8-bit PCM, mono" at
 a project rate of 31469 Hz (Audacity: Tracks, Resample; Export, Other
 uncompressed files).
 
-The two files on the card are made by `gen_wave_demo.py`: `HELLO.WAV`
-(speech from espeak-ng, 15,734 Hz) and `MUSIC.WAV` (22 seconds of plucked
-strings, bass, chords and drums, 31,469 Hz, the project's own tune).
+8 bits leave about 48 dB between the loudest sound and the hiss, so the
+soft parts of music with loud and soft parts sit close to it.
+`--compress` brings them up first (the level over a third of a second,
+halved in dB against the loudest part, at most 12 dB up).
+
+The two files on the card are made by `gen_wave_demo.py`:
+
+| File | What | Rate | Size |
+|---|---|---|---|
+| `BRAHMS.WAV` | Brahms, Hungarian Dance No. 5, played by the United States Army Strings: a public domain recording from Musopen (`src/sounds/README.md`), 46 seconds, with `--compress` | 31,469 Hz | 1.4 MB |
+| `HELLO.WAV` | speech from espeak-ng, 9 seconds | 15,734 Hz | 138 KB |
 
 ## Keys
 

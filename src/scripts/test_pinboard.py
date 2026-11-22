@@ -131,7 +131,7 @@ class Script:
         self.t += settle
         self.shots.append((self.t, name, bpp))
 
-    def run(self, files, mouse=True, png=None, tag='', rev_b=False, audio=False, spc=1, size_kb=4096):
+    def run(self, files, mouse=True, png=None, tag='', rev_b=False, audio=False, spc=1, size_kb=None):
         rams, card = pe.run(files, self.inp, [t for t, _, _ in self.shots], self.t + 5,
                             mouse=mouse, rev_b=rev_b, audio=audio, spc=spc, size_kb=size_kb)
         self.audio = rams.get('audio')
