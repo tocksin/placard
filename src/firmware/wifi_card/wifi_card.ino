@@ -46,13 +46,26 @@
 //              weekday (0 = Sunday), UTC, from the network's time
 //              servers (01: not known yet)
 //
+//   30-3B     the browser's commands (browser.h, and "The browser's
+//              commands" in WIFICARD.md): the module fetches a page,
+//              lays its HTML out in lines for the Placard's screen
+//              and turns its pictures into the Placard's pixels.
+//              That code is browser.cpp, html.cpp and image.cpp in
+//              this folder, plain C++ that the simulators run too
+//              (host/wifi_host.cpp, which the Arduino build leaves
+//              out: it is not in src/).  02 until a network is joined
+//
 // A network kept in flash is joined again at power-up.
 //
-// NOT YET TRIED ON A BOARD (2026-11-21): written against the card's
+// NOT YET TRIED ON A BOARD (2026-11-22): written against the card's
 // simulator model (src/scripts/io_devices.py, WifiCard), which the
-// Placard side is tested with.
+// Placard side is tested with.  The browser's code runs in the
+// simulators as it is here; what a module adds, and nothing has tried,
+// is EspNet below and the memory it all takes: the browser keeps about
+// 75 KB for a page, and up to 40 KB more while a picture is turned
+// into pixels, beside the radio's and a TLS connection's.
 //
-// Date: 2026-11-21
+// Date: 2026-11-22
 // ============================================================
 
 #include <WiFi.h>
@@ -60,9 +73,13 @@
 #include <WiFiClientSecure.h>
 #include <Preferences.h>
 #include <time.h>
+#include <new>
 #include "driver/spi_slave.h"
 #include "driver/gpio.h"
 #include "esp_heap_caps.h"
+#include "browser.h"
+
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);     // the page's layout and the picture decoders run in loop()
 
 // module pins (the card's schematic)
 #define PIN_READY 4      // J3 pin 11, to the PLD's pin 10
@@ -76,7 +93,7 @@
 enum { ST_OK = 0x00, ST_CANT = 0x01, ST_NO_NET = 0x02, ST_NO_CONN = 0x03, ST_UNKNOWN = 0xFF };
 enum { NET_OFF = 0, NET_JOINING = 1, NET_JOINED = 2, NET_FAILED = 3 };
 
-static const char INFO[] = "PLACARD WIFI 1.0";
+static const char INFO[] = "PLACARD WIFI 1.1";
 static const unsigned long JOIN_MS = 20000;      // a join that takes longer has failed
 static const int32_t OPEN_MS = 8000;             // and so has a connection
 
@@ -92,6 +109,53 @@ static WiFiClient *conn = nullptr;
 static uint8_t netState = NET_OFF;
 static unsigned long joinStart;
 static bool clockAsked = false;
+
+// the browser's own connection (browser.h, Net): one at a time, kept
+// open between a page's fetches
+static WiFiClient webPlain;
+static WiFiClientSecure webTls;
+
+struct EspNet : pb::Net {
+  WiFiClient *c = nullptr;
+  bool open(const char *host, uint16_t port, bool tls) override {
+    close();
+    WiFiClient *k = &webPlain;
+    if (tls) {
+      webTls.setInsecure();                      // the site's certificate is not checked
+      k = &webTls;
+    }
+    if (!k->connect(host, port, OPEN_MS)) return false;
+    c = k;
+    return true;
+  }
+  bool send(const uint8_t *d, int n) override {
+    return c && c->connected() && c->write(d, n) == (size_t)n;
+  }
+  int recv(uint8_t *d, int max, uint32_t waitMs) override {
+    if (!c) return -1;
+    uint32_t t0 = millis();
+    for (;;) {
+      int have = c->available();
+      if (have > 0) {
+        int got = c->read(d, have < max ? have : max);
+        return got > 0 ? got : 0;
+      }
+      if (!c->connected()) return -1;
+      if (millis() - t0 >= waitMs) return 0;
+      delay(2);
+    }
+  }
+  void close() override {
+    if (c) {
+      c->stop();
+      c = nullptr;
+    }
+  }
+  uint32_t ms() override { return millis(); }
+};
+
+static EspNet webNet;
+static pb::Browser *browser = nullptr;           // made at the first of its commands (about 75 KB)
 
 // READY follows the SPI driver: high once a transfer is queued, low when it ends
 static void IRAM_ATTR onQueued(spi_slave_transaction_t *t) { gpio_set_level((gpio_num_t)PIN_READY, 1); }
@@ -244,6 +308,14 @@ static uint8_t handle(uint8_t cmd, const uint8_t *d, uint8_t n) {
       replyLen = 7;
       return ST_OK;
     }
+  }
+  if (cmd >= 0x30 && cmd <= 0x3B) {              // the browser
+    follow();
+    if (netState != NET_JOINED) return ST_NO_NET;
+    if (conn) { conn->stop(); conn = nullptr; }  // one connection at a time: OPEN's is closed
+    if (!browser) browser = new (std::nothrow) pb::Browser(webNet);
+    if (!browser) return ST_CANT;
+    return browser->command(cmd, d, n, reply, &replyLen);
   }
   return ST_UNKNOWN;
 }

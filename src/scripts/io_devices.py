@@ -37,7 +37,7 @@ byte it pulls both clock lines low (inhibit) until re-armed.
 The mouse and the PS/2 keyboard share the DATA line: SharedPort counts
 moments both drive it (collisions), which the driver must never cause.
 
-Date: 11/16/2026
+Date: 11/22/2026
 """
 
 CPU_HZ = 25_175_000
@@ -807,11 +807,20 @@ class WifiCard:
     read).  clock = (year - 2000, month, day, hour, minute, second,
     weekday) or None (the time is not known).  delay = status reads
     before READY rises after a transfer; join_polls = STATE requests
-    answered "joining" before a join ends."""
+    answered "joining" before a join ends.
+
+    browser = f(command, bytes) -> (status, bytes): the browser's commands
+    (30 and up), done by the module's own code built for this computer
+    (wifi_host.Host(...).command); they answer 02 until a network is
+    joined.  Without one they are unknown commands (FF), as on a module
+    with the 1.0 firmware."""
 
     INFO = b'PLACARD WIFI 1.0'
 
-    def __init__(self, networks=None, hosts=None, clock=None, saved=None, delay=2, join_polls=2):
+    def __init__(self, networks=None, hosts=None, clock=None, saved=None, delay=2, join_polls=2, browser=None):
+        self.browser = browser
+        if browser is not None:
+            self.INFO = b'PLACARD WIFI 1.1'
         self.networks = dict(networks or {})
         self.hosts = dict(hosts or {})
         self.clock = clock
@@ -946,6 +955,10 @@ class WifiCard:
             if self.clock is None or self.state != 2:
                 return 1, b''
             return 0, bytes(self.clock)
+        if c >= 0x30 and self.browser is not None:
+            if self.state != 2:
+                return 2, b''
+            return self.browser(c, d)
         return 0xFF, b''
 
 

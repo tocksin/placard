@@ -14,7 +14,7 @@ with no server and no build step:
   that uploads `web/`).  Nothing is sent anywhere; the files you load stay
   in the browser.
 
-Date: 11/17/2026
+Date: 11/22/2026
 
 ## What it models
 
@@ -36,7 +36,7 @@ simulation; the timing comes from the same rules the Python simulator uses:
 | PS/2 | keyboard (scan code set 2, typematic repeats from the browser's key repeat, LEDs shown under the screen) and mouse, at the line level in 5 us steps, through the receiver PLD and the port latch |
 | SNES pads | the browser's game controllers (standard mapping: bottom B, right A, left Y, top X, shoulders L/R, back Select, start Start, D-pad and left stick) |
 | SD card | SPI-mode SDHC card: CMD0/8/55/ACMD41/58/16/17/24, reads and writes |
-| Expansion slots | empty (read FF) |
+| Expansion slots | empty (read FF) in the browser.  The core has the four slots (`Machine.slots`) and the WiFi card (`WifiCard`), which `pinboard_emu.py` fits with the module's own code for `test_web.py` ([WEB.md](WEB.md)) |
 | Board revision | rev A unless Board is set to rev B in the options: then bit 7 of a mode byte is the 160-read line instead of the blank line, with its second stall clock per group ([HIRES.md](../video/HIRES.md)); `placard_sim.py --rev b` is the same in Python, and `test_hires.py` checks both |
 
 The video stall clock is placed in clock 7 of its group and the audio stall

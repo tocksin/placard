@@ -12,7 +12,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [IO.md](architecture/IO.md): the shared port (SNES pads, SD card, PS/2 keyboard and mouse)
 - [EXPANSION.md](architecture/EXPANSION.md): expansion slots and the ROM cartridge slot
 - [MEMCARD.md](architecture/MEMCARD.md): the 512K memory expansion card
-- [WIFICARD.md](architecture/WIFICARD.md): the WiFi expansion card, its driver and demo (`WIFI.PLC`); designed, not built
+- [WIFICARD.md](architecture/WIFICARD.md): the WiFi expansion card, its driver and demo (`WIFI.PLC`) and the browser's commands; designed, not built
 - [PLD_USAGE.md](architecture/PLD_USAGE.md): unused pins and product terms in each 22V10
 
 ## [timing/](timing/)
@@ -37,6 +37,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [PINBOARD.md](software/PINBOARD.md): Pinboard, a windowed desktop with a file browser, a clock, a calculator and an editor, in 2, 4 or 16 colors (`PINBOARD.PLC`)
 - [PHOTOS.md](software/PHOTOS.md): the photo viewer and its picture files, 160 x 240 in 256 colors on rev B (`PHOTO.PLC`)
 - [WAVE.md](software/WAVE.md): the sound player, which plays 8-bit WAV recordings from the SD card (`WAVE.PLC`)
+- [WEB.md](software/WEB.md): the web browser for the WiFi card: the module fetches and lays out the page and converts its pictures, the Placard draws (`WEB.PLC`); runs in simulation only
 - [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
 - [SCRAP.md](software/SCRAP.md): SCRAPWRIGHT, a ship salvage game (`SCRAP.PLC`, phase 3)
 - [SKYWARD.md](software/SKYWARD.md): Skyward Tobi, a side-scrolling platform game (`SKYWARD.PLC`)
