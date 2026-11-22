@@ -2,13 +2,14 @@
 
 PLACARD BASIC is the BASIC in the 32K ROM image.  It starts when the
 machine has no SD card (or no `DOS.PLC` on it), when `BOOT.CFG` names
-`BASIC`, or from the DOS (Ctrl+B in its file browser, or its `BASIC`
-command).  It is a 16-bit integer BASIC with strings, in
+`BASIC`, from the DOS (Ctrl+B in its file browser, or its `BASIC`
+command), or from Pinboard's Editor, which runs its text in BASIC
+(Ctrl+B there).  It is a 16-bit integer BASIC with strings, in
 the style of Microsoft BASIC: line numbers, `FOR`/`NEXT`, `GOSUB`,
 strings with `LEFT$`, `MID$` and friends, arrays, `DATA`, plus statements
 for the Placard's screen, graphics, sound and SD card.
 
-Date: 11/16/2026
+Date: 11/22/2026
 
 Source: `src/scripts/basic.masm` (the bytecode machine, about 1.5 KB of
 native code) and `src/scripts/basic.vm` (the interpreter, in bytecode,
@@ -41,6 +42,11 @@ useful anyway).
 - **Esc held at power-up** starts the DOS instead of what `BOOT.CFG`
   names; `DOS` from BASIC goes there too.
 - Backspace edits the line being typed; lines are up to 158 characters.
+- **Started from Pinboard's Editor** ([PINBOARD.md](PINBOARD.md), Ctrl+B
+  there), BASIC loads the Editor's file and runs it at once.  The prompt
+  is then `Ready (Ctrl+B: Pinboard)`: Ctrl+B at the prompt, or `DOS`, goes
+  back to the Editor, and the file commands work in the program's folder
+  instead of the root.
 
 ## The language
 

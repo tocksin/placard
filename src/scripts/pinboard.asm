@@ -52,12 +52,12 @@
 ;                                 drivers in ../../sdcard/PINBOARD
 ;     python3 test_pinboard.py    runs it from a card in the emulator
 ;
-; Date: 11/17/2026
+; Date: 11/22/2026
 ; ============================================================
 
 ; pinboard_hdr.masm - what pinboard.masm (the core) and its display
 ; drivers (pinboard_drv_*.masm) share: the constants and the macros.
-; Date: 11/17/2026
+; Date: 11/22/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -65,6 +65,7 @@
 PB_PTR    = 0x3600      ; the pointer's tables, 2 pages
 PB_FONT   = 0x3800      ; the font, 8 pages
 DRV       = 0x2E00      ; the display driver: x2E00-x3FFF, a file of its own
+CORE2     = 0x3500      ; x3500-x35FF: more of the core (every driver file has the same bytes here)
 DRV_CELLS = DRV         ;   its entries (GOTO: EMIT, HFILL and GTYPE end there)
 DRV_INVC  = DRV + 4     ;   (GOTO: INVC)
 DRV_HIDE  = DRV + 8     ;   (CALL: the pointer off the screen)
@@ -176,22 +177,6 @@ pb_r1:
 ; the inner interpreter and the primitives every program of the
 ; machine needs, from basic.masm
 ; ============================================================
-w_F_M_DRAW:
-    #d8 1, 1, 1, 1, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1, 14, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 1
-    #d8 (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, 2, 96, 93, 25, 4, 7, 2, 96, 93, (w_ZTYPE >> 8) | 0x80
-    #d8 w_ZTYPE & 0xFF, 3, 4, 1, 92, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 0, 12, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF
-    #d8 39, 4, 11, 12, 2, 146, 75, 25, 27, (w_F_M_ROW >> 8) | 0x80, w_F_M_ROW & 0xFF, 33
-    #d8 3, 239, 13, (w_INK >> 8) | 0x80, w_INK & 0xFF, (w_SBX >> 8) | 0x80, w_SBX & 0xFF, 1, 2, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1
-    #d8 8, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 3, 12, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 33, 39, 4, 12
-    #d8 (w_SBX >> 8) | 0x80, w_SBX & 0xFF, 15, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1, 15, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 33, 3, 237
-    #d8 13, (w_SBX >> 8) | 0x80, w_SBX & 0xFF, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 33, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1, 9, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF
-    #d8 (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 2, 144, 75, 25, 39, 4, 30, (w_SBX >> 8) | 0x80, w_SBX & 0xFF, 2
-    #d8 146, 75, 25, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 1, 3, 28, 42, 2, 144, 75
-    #d8 25, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 28, 43, 16, 1, 3, 27, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1
-    #d8 17, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 1, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 1, 2, 27, (w_AT >> 8) | 0x80, w_AT & 0xFF
-    #d8 2, 148, 75, 23, 12, 4, 8, 10, 147, 1, 3, 28
-    #d8 5, w_CTYPE & 0xFF, w_CTYPE >> 8, 13, 2, 144, 75, 25, (w_U_GT_S >> 8) | 0x80, w_U_GT_S & 0xFF, 51, 7
-    #d8 6, 32, 105, 116, 101, 109, 115, 5, w_TYPE & 0xFF, w_TYPE >> 8, 0
 w_RAIL:
     #d8 1, 4, (w_PEN >> 8) | 0x80, w_PEN & 0xFF, 1, 0, (w_BOARD_M_H >> 8) | 0x80, w_BOARD_M_H & 0xFF, (w_ABS_M_AT >> 8) | 0x80, w_ABS_M_AT & 0xFF, 1, 16
     #d8 (w_COLS >> 8) | 0x80, w_COLS & 0xFF, 50, (w_RAIL_M_Y >> 8) | 0x80, w_RAIL_M_Y & 0xFF, 12, 2, 81, 46, 25, 39, 4
@@ -357,6 +342,17 @@ w_E_M_STRIP:
     #d8 64, 27, 26, 20, 33, 14, 3, 12, 1, 13, 37, 40
     #d8 4, 6, 1, 1, 2, 246, 75, 26, 33, 3, 169, 13
     #d8 2, 208, 75, 24, 0
+w_COLD:
+    #d8 (w_E_M_BACK1 >> 8) | 0x80, w_E_M_BACK1 & 0xFF, (w_NOCLIP >> 8) | 0x80, w_NOCLIP & 0xFF, 1, 0, 11, 144, 1, 0, 11, 153
+    #d8 1, 0, 11, 156, 1, 0, 11, 60, 10, 8, 11, 154
+    #d8 1, 0, 2, 138, 75, 24, 2, 64, 75, 1, 48, 1
+    #d8 0, 47, (w_F_M_INIT >> 8) | 0x80, w_F_M_INIT & 0xFF, (w_K_M_CLR >> 8) | 0x80, w_K_M_CLR & 0xFF, (w_E_M_NEW >> 8) | 0x80, w_E_M_NEW & 0xFF, 2, (w_D_M_NOTE) & 0xFF, (w_D_M_NOTE) >> 8, 2
+    #d8 248, 75, 24, 2, 24, 93, 25, 12, 1, 3, 38, 40
+    #d8 4, 3, 13, 1, 0, 12, 4, 8, 12, (w_DRV_M_LOAD >> 8) | 0x80, w_DRV_M_LOAD & 0xFF, 4
+    #d8 3, 13, 1, 0, 12, 2, 247, 75, 26, 2, 24, 93
+    #d8 26, (w_MODE_M_UP >> 8) | 0x80, w_MODE_M_UP & 0xFF, 1, 1, 1, 0, (w_WIN >> 8) | 0x80, w_WIN & 0xFF, 26, 1, 0
+    #d8 (w_RAISE >> 8) | 0x80, w_RAISE & 0xFF, 12, 4, 4, (w_E_M_BACK2 >> 8) | 0x80, w_E_M_BACK2 & 0xFF, 3, 1, 13, (w_REFRESH_M_ALL >> 8) | 0x80, w_REFRESH_M_ALL & 0xFF
+    #d8 5, w_MAIN & 0xFF, w_MAIN >> 8
 w_D_P__ST_:
     #d8 2, 192, 75, 24, 2, 190, 75, 24, 2, 190, 75, 23
     #d8 23, 2, 192, 75, 23, 23, 27, 12, 2, 190, 75, 23
@@ -367,26 +363,6 @@ w_D_P__ST_:
     #d8 2, 1, 0, 19, 14, 15, 27, 12, 17, 38, 4, 4
     #d8 1, 1, 3, 2, 1, 0, 20, 30, 14, 2, 192, 75
     #d8 23, 1, 2, 27, 24, 0
-w_F_M_GO:
-    #d8 (w_E_M_GUARD >> 8) | 0x80, w_E_M_GUARD & 0xFF, 4, 1, 0, 2, 145, 75, 25, 2, 19, 93
-    #d8 26, 2, 146, 75, 25, 2, 20, 93, 26, 1, 1, 2
-    #d8 3, 93, 26, 1, 0, 2, 9, 93, 26, 1, 0, 2
-    #d8 8, 93, 26, 1, 80, 2, 17, 93, 26, 2, 140, 75
-    #d8 25, 2, 21, 93, 26, 2, 141, 75, 25, 2, 21, 93
-    #d8 33, 26, 2, 142, 75, 25, 2, 21, 93, 1, 2, 27
-    #d8 26, (w_ROOT_Q_ >> 8) | 0x80, w_ROOT_Q_ & 0xFF, 4, 9, 2, (w_SELF) & 0xFF, (w_SELF) >> 8, 2, 64, 93, 1
-    #d8 13, 45, (w_LEAVE_M_DESK >> 8) | 0x80, w_LEAVE_M_DESK & 0xFF, 2, 112, 75, 9, 16, 1, 0, 2
-    #d8 12, 128, 48, 13, 0
-w_COLD:
-    #d8 (w_NOCLIP >> 8) | 0x80, w_NOCLIP & 0xFF, 1, 0, 11, 144, 1, 0, 11, 153, 1, 0
-    #d8 11, 156, 1, 0, 11, 60, 10, 8, 11, 154, 1, 0
-    #d8 2, 138, 75, 24, 2, 64, 75, 1, 48, 1, 0, 47
-    #d8 (w_F_M_INIT >> 8) | 0x80, w_F_M_INIT & 0xFF, (w_K_M_CLR >> 8) | 0x80, w_K_M_CLR & 0xFF, (w_E_M_NEW >> 8) | 0x80, w_E_M_NEW & 0xFF, 2, (w_D_M_NOTE) & 0xFF, (w_D_M_NOTE) >> 8, 2, 248, 75
-    #d8 24, 2, 24, 93, 25, 12, 1, 3, 38, 40, 4, 3
-    #d8 13, 1, 0, 12, 4, 8, 12, (w_DRV_M_LOAD >> 8) | 0x80, w_DRV_M_LOAD & 0xFF, 4, 3, 13
-    #d8 1, 0, 12, 2, 247, 75, 26, 2, 24, 93, 26, (w_MODE_M_UP >> 8) | 0x80
-    #d8 w_MODE_M_UP & 0xFF, 1, 1, 1, 0, (w_WIN >> 8) | 0x80, w_WIN & 0xFF, 26, 1, 0, (w_RAISE >> 8) | 0x80, w_RAISE & 0xFF
-    #d8 (w_REFRESH_M_ALL >> 8) | 0x80, w_REFRESH_M_ALL & 0xFF, 5, w_MAIN & 0xFF, w_MAIN >> 8
 w_F_M_CD:
     #d8 2, 112, 75, 9, 16, 2, (fs_open) & 0xFF, (fs_open) >> 8, (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF, 4, 24
     #d8 7, 13, 67, 97, 110, 39, 116, 32, 111, 112, 101, 110
@@ -432,6 +408,15 @@ w_DIR_M_READ:
     #d8 w_ENT & 0xFF, 1, 12, 45, 2, 64, 77, 1, 28, 27, 2, 144
     #d8 75, 25, (w_ENT >> 8) | 0x80, w_ENT & 0xFF, 1, 12, 27, 1, 4, 45, 2, 144
     #d8 75, 25, 33, 2, 144, 75, 26, 3, 177, 0
+w_E_M_BACK1:
+    #d8 2, 25, 93, 25, 1, 66, 37, 40, 4, 3, 1, 0
+    #d8 0, 2, 204, 93, 1, 34, 27, 2, 96, 77, 1, 4
+    #d8 45, 2, 204, 93, 1, 20, 27, 9, 16, 2, (fs_open) & 0xFF, (fs_open) >> 8
+    #d8 (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF, 2, 40, 77, 1, 2, 27, 23, 30, 2, 40
+    #d8 77, 23, 2, 255, 10, 38, 40, 30, 4, 3, 1, 0
+    #d8 0, 2, 40, 77, 23, 2, 204, 93, 1, 20, 27, 9
+    #d8 16, 2, 0, 64, 9, 20, 2, (fs_load) & 0xFF, (fs_load) >> 8, (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF, 4
+    #d8 4, 13, 1, 0, 0, 33, 0
 w_D_M_DRAW:
     #d8 1, 0, 12, 1, 3, 39, 4, 62, 1, 1, 15, 1
     #d8 2, 27, (w_AT >> 8) | 0x80, w_AT & 0xFF, 12, 2, 247, 75, 25, 37, 4, 8
@@ -440,6 +425,14 @@ w_D_M_DRAW:
     #d8 12, 35, 2, (w_D_M_ITEMS) & 0xFF, (w_D_M_ITEMS) >> 8, 27, 23, (w_TYPE >> 8) | 0x80, w_TYPE & 0xFF, 1, 1, (w_SPACES >> 8) | 0x80
     #d8 w_SPACES & 0xFF, (w_INK >> 8) | 0x80, w_INK & 0xFF, 1, 0, (w_PEN >> 8) | 0x80, w_PEN & 0xFF, 33, 3, 188, 13, 1
     #d8 1, 1, 6, (w_AT >> 8) | 0x80, w_AT & 0xFF, 2, 248, 75, 23, 5, w_TYPE & 0xFF, w_TYPE >> 8
+w_F_M_PREP:
+    #d8 2, 145, 75, 25, 2, 19, 93, 26, 2, 146, 75, 25
+    #d8 2, 20, 93, 26, 1, 1, 2, 3, 93, 26, 1, 0
+    #d8 2, 9, 93, 26, 1, 0, 2, 8, 93, 26, 1, 80
+    #d8 2, 17, 93, 26, 2, 140, 75, 25, 2, 21, 93, 26
+    #d8 2, 141, 75, 25, 2, 21, 93, 33, 26, 2, 142, 75
+    #d8 25, 2, 21, 93, 1, 2, 27, 26, (w_ROOT_Q_ >> 8) | 0x80, w_ROOT_Q_ & 0xFF, 4, 9
+    #d8 2, (w_SELF) & 0xFF, (w_SELF) >> 8, 2, 64, 93, 1, 13, 45, 5, w_LEAVE_M_DESK & 0xFF, w_LEAVE_M_DESK >> 8
 w_E_M_CLICK:
     #d8 10, 152, 1, 2, 28, 12, (w_E_M_ROWS >> 8) | 0x80, w_E_M_ROWS & 0xFF, 38, 40, 4, 2
     #d8 13, 0, 19, 1, 0, 53, 1, 3, (w_SETW >> 8) | 0x80, w_SETW & 0xFF, (w_E_M_CUR >> 8) | 0x80, w_E_M_CUR & 0xFF
@@ -448,14 +441,14 @@ w_E_M_CLICK:
     #d8 4, 8, 14, (w_E_M_EOL >> 8) | 0x80, w_E_M_EOL & 0xFF, 33, 14, 33, 3, 228, 22, 2
     #d8 222, 75, 26, 10, 151, 12, 4, 1, 34, 2, 218, 75
     #d8 23, 27, (w_E_M_TOCOL >> 8) | 0x80, w_E_M_TOCOL & 0xFF, (w_E_M_CUR >> 8) | 0x80, w_E_M_CUR & 0xFF, 1, 1, 53, 0
-w_E_M_DRAW:
-    #d8 (w_E_M_INFO >> 8) | 0x80, w_E_M_INFO & 0xFF, (w_E_M_TEXT >> 8) | 0x80, w_E_M_TEXT & 0xFF, 1, 1, (w_E_M_ROWS >> 8) | 0x80, w_E_M_ROWS & 0xFF, 1, 2, 27, (w_AT >> 8) | 0x80
-    #d8 w_AT & 0xFF, 7, 40, 67, 116, 114, 108, 43, 79, 32, 115, 97
-    #d8 118, 101, 32, 32, 67, 116, 114, 108, 43, 78, 32, 110
-    #d8 101, 119, 32, 32, 67, 116, 114, 108, 43, 69, 32, 108
-    #d8 105, 110, 101, 32, 101, 110, 100, (w_E_M_COLS >> 8) | 0x80, w_E_M_COLS & 0xFF, (w_CTYPE >> 8) | 0x80, w_CTYPE & 0xFF, 10
-    #d8 145, (w_E_M_COLS >> 8) | 0x80, w_E_M_COLS & 0xFF, 27, 33, 10, 48, 28, (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, 1, 3
-    #d8 (w_TOPW >> 8) | 0x80, w_TOPW & 0xFF, 37, 4, 3, 5, w_E_M_CUR & 0xFF, w_E_M_CUR >> 8, 0
+w_E_M_RUN:
+    #d8 2, 223, 75, 25, 2, 228, 75, 25, 40, 30, 4, 2
+    #d8 (w_E_M_SAVE >> 8) | 0x80, w_E_M_SAVE & 0xFF, 2, 223, 75, 25, 2, 228, 75, 25, 40, 30
+    #d8 4, 1, 0, 2, 208, 75, 2, 204, 93, 1, 38, 45
+    #d8 1, 66, 2, 25, 93, 26, 2, 96, 77, 2, 27, 93
+    #d8 1, 4, 45, 1, 0, 2, 80, 93, 24, 1, 0, 2
+    #d8 80, 93, 1, 2, 27, 24, 2, 96, 77, (w_D0_ST_ >> 8) | 0x80, w_D0_ST_ & 0xFF, (w_F_M_PREP >> 8) | 0x80
+    #d8 w_F_M_PREP & 0xFF, 1, 0, 2, 36, 128, 48, 13, 0
 w_K_M_LBL:
     #d8 32, 67, 32, 32, 32, 43, 45, 32, 32, 60, 45, 32
     #d8 32, 47, 32, 32, 32, 55, 32, 32, 32, 56, 32, 32
@@ -480,6 +473,14 @@ w_K_GT_S:
     #d8 w_D_S_10_ST_ & 0xFF, 1, 48, 27, 15, 26, 2, 176, 75, (w_D0_EQ_ >> 8) | 0x80, w_D0_EQ_ & 0xFF, 4
     #d8 238, 20, 4, 5, 34, 1, 45, 15, 26, 2, 196, 75
     #d8 1, 12, 27, 15, 28, 0
+w_E_M_DRAW:
+    #d8 (w_E_M_INFO >> 8) | 0x80, w_E_M_INFO & 0xFF, (w_E_M_TEXT >> 8) | 0x80, w_E_M_TEXT & 0xFF, 1, 1, (w_E_M_ROWS >> 8) | 0x80, w_E_M_ROWS & 0xFF, 1, 2, 27, (w_AT >> 8) | 0x80
+    #d8 w_AT & 0xFF, 7, 35, 67, 116, 114, 108, 43, 79, 32, 115, 97
+    #d8 118, 101, 32, 32, 67, 116, 114, 108, 43, 78, 32, 110
+    #d8 101, 119, 32, 32, 67, 116, 114, 108, 43, 66, 32, 114
+    #d8 117, 110, (w_E_M_COLS >> 8) | 0x80, w_E_M_COLS & 0xFF, (w_CTYPE >> 8) | 0x80, w_CTYPE & 0xFF, 10, 145, (w_E_M_COLS >> 8) | 0x80, w_E_M_COLS & 0xFF, 27, 33
+    #d8 10, 48, 28, (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, 1, 3, (w_TOPW >> 8) | 0x80, w_TOPW & 0xFF, 37, 4, 3
+    #d8 5, w_E_M_CUR & 0xFF, w_E_M_CUR >> 8, 0
 w_E_M_CRLF:
     #d8 2, 208, 75, 23, 2, 216, 75, 23, 27, 12, 2, 136
     #d8 75, 24, 2, 208, 75, 23, 12, 2, 136, 75, 23, 38
@@ -582,12 +583,6 @@ w_F_M_KEY:
     #d8 7, 2, 145, 75, 25, 33, (w_F_M_MOVE >> 8) | 0x80, w_F_M_MOVE & 0xFF, 12, 1, 10, 37
     #d8 4, 2, (w_F_M_OPEN >> 8) | 0x80, w_F_M_OPEN & 0xFF, 1, 8, 37, 4, 3, 5, w_F_M_UP & 0xFF, w_F_M_UP >> 8
     #d8 0
-w_DRV_M_LOAD:
-    #d8 2, 96, 77, 2, 128, 75, 1, 4, 45, 2, 96, 77
-    #d8 (w_D0_ST_ >> 8) | 0x80, w_D0_ST_ & 0xFF, 2, (w_D_M_DIR) & 0xFF, (w_D_M_DIR) >> 8, 9, 16, 2, (fs_open) & 0xFF, (fs_open) >> 8, (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF
-    #d8 12, 40, 4, 21, 13, 35, 2, (w_D_M_FILES) & 0xFF, (w_D_M_FILES) >> 8, 27, 23, 9
-    #d8 16, 2, 0, 46, 9, 20, 2, (fs_load) & 0xFF, (fs_load) >> 8, (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF, 3
-    #d8 1, 16, 2, 128, 75, 2, 96, 77, 1, 4, 45, 0
 w_K_M_DISP1:
     #d8 1, 2, 1, 2, (w_AT >> 8) | 0x80, w_AT & 0xFF, (w_REV >> 8) | 0x80, w_REV & 0xFF, 1, 19, (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF
     #d8 1, 3, 1, 2, (w_AT >> 8) | 0x80, w_AT & 0xFF, 2, 186, 75, 25, 12, 4
@@ -674,6 +669,11 @@ w_K_M_COMMIT:
     #d8 4, 4, (w_K_M_CALC >> 8) | 0x80, w_K_M_CALC & 0xFF, 3, 20, 13, 2, 164, 75, 2, 160
     #d8 75, 1, 4, 45, 2, 185, 75, 25, 2, 184, 75, 26
     #d8 (w_K_M_FIN >> 8) | 0x80, w_K_M_FIN & 0xFF, 1, 1, 2, 187, 75, 26, 0
+w_E_M_BACK2:
+    #d8 34, 2, 204, 93, 2, 208, 75, 1, 38, 45, 2, 208
+    #d8 75, 23, 14, (w_E_M_STRIP >> 8) | 0x80, w_E_M_STRIP & 0xFF, 2, 208, 75, 23, 37, 40, 4
+    #d8 2, (w_E_M_HOME >> 8) | 0x80, w_E_M_HOME & 0xFF, 1, 0, 2, 220, 75, 24, 1, 1, 1
+    #d8 3, (w_WIN >> 8) | 0x80, w_WIN & 0xFF, 26, 1, 3, 5, w_RAISE & 0xFF, w_RAISE >> 8
 w_D_M__ST_:
     #d8 14, 2, 180, 75, 1, 4, 45, 2, 180, 75, 23, 32
     #d8 2, 180, 75, 24, 2, 180, 75, 1, 2, 27, 23, 32
@@ -868,6 +868,9 @@ w_E_M_TOCOL:
 w_E_M_UPK:
     #d8 2, 214, 75, 23, 12, 40, 4, 2, 13, 0, 34, (w_E_M_BOL >> 8) | 0x80
     #d8 w_E_M_BOL & 0xFF, (w_E_M_COL >> 8) | 0x80, w_E_M_COL & 0xFF, (w_E_M_TOCOL >> 8) | 0x80, w_E_M_TOCOL & 0xFF, 5, w_E_M_UP1 & 0xFF, w_E_M_UP1 >> 8
+w_F_M_GO:
+    #d8 (w_E_M_GUARD >> 8) | 0x80, w_E_M_GUARD & 0xFF, 4, 1, 0, (w_F_M_PREP >> 8) | 0x80, w_F_M_PREP & 0xFF, 2, 112, 75, 9, 16
+    #d8 1, 0, 2, 12, 128, 48, 13, 0
 w_D_M_NOTE:
     #d8 19, 52, 44, 32, 49, 54, 58, 32, 114, 101, 118, 32
     #d8 66, 32, 98, 111, 97, 114, 100, 115
@@ -1037,8 +1040,6 @@ w_D_M_F0:
     #d8 77, 79, 78, 79, 46, 68, 82, 86, 0
 w_D_M_SAY:
     #d8 2, 248, 75, 24, 1, 5, 5, w_UPDATE & 0xFF, w_UPDATE >> 8
-w_T_M_DISP:
-    #d8 7, 68, 105, 115, 112, 108, 97, 121
 w_SPACES:
     #d8 1, 32, 10, 54, 31, 14, 50, 0
 w_UMIN:
@@ -2757,23 +2758,6 @@ w_A_M_DRAW:
     #d8 97, 107, 101, 32, 116, 104, 101, 32, 102, 114, 111, 110
     #d8 116, 32, 99, 97, 114, 100, 32, 100, 111, 119, 110, (w_TYPE >> 8) | 0x80
     #d8 w_TYPE & 0xFF, 0
-w_E_M_KEY:
-    #d8 12, 1, 15, 37, 4, 4, 13, 5, w_E_M_SAVE & 0xFF, w_E_M_SAVE >> 8, 1, 0
-    #d8 53, 1, 3, (w_SETW >> 8) | 0x80, w_SETW & 0xFF, (w_E_M_CUR >> 8) | 0x80, w_E_M_CUR & 0xFF, 1, 0, 2, 226, 75
-    #d8 26, 1, 0, 2, 227, 75, 26, 1, 0, 2, 220, 75
-    #d8 24, 12, 1, 14, 37, 4, 4, (w_E_M_CLEAR >> 8) | 0x80, w_E_M_CLEAR & 0xFF, 3, 6, 1
-    #d8 0, 2, 225, 75, 26, 12, 1, 17, 37, 4, 2, (w_E_M_UPK >> 8) | 0x80
-    #d8 w_E_M_UPK & 0xFF, 12, 1, 18, 37, 4, 2, (w_E_M_DOWNK >> 8) | 0x80, w_E_M_DOWNK & 0xFF, 12, 1, 20
-    #d8 37, 4, 2, (w_E_M_RIGHTK >> 8) | 0x80, w_E_M_RIGHTK & 0xFF, 12, 1, 19, 37, 4, 2, (w_E_M_LEFTK >> 8) | 0x80
-    #d8 w_E_M_LEFTK & 0xFF, 12, 1, 21, 37, 4, 8, 2, 214, 75, 23, 2
-    #d8 210, 75, 24, 12, 1, 5, 37, 4, 10, 2, 210, 75
-    #d8 23, (w_E_M_EOL >> 8) | 0x80, w_E_M_EOL & 0xFF, 2, 210, 75, 24, 12, 1, 8, 37, 4
-    #d8 2, (w_E_M_BKSP >> 8) | 0x80, w_E_M_BKSP & 0xFF, 12, 1, 127, 37, 4, 2, (w_E_M_DEL >> 8) | 0x80, w_E_M_DEL & 0xFF, 12
-    #d8 1, 10, 37, 15, 1, 32, 28, 1, 95, 38, 30, 4
-    #d8 3, 12, (w_E_M_INS >> 8) | 0x80, w_E_M_INS & 0xFF, 13, (w_E_M_HS >> 8) | 0x80, w_E_M_HS & 0xFF, 2, 226, 75, 25, 4
-    #d8 4, (w_E_M_TEXT >> 8) | 0x80, w_E_M_TEXT & 0xFF, 3, 17, 2, 227, 75, 25, 4, 11, 2
-    #d8 214, 75, 23, 2, 222, 75, 25, (w_E_M_LINE >> 8) | 0x80, w_E_M_LINE & 0xFF, 13, (w_E_M_INFO >> 8) | 0x80, w_E_M_INFO & 0xFF
-    #d8 (w_E_M_CUR >> 8) | 0x80, w_E_M_CUR & 0xFF, 1, 1, 53, 0
 w_K_M_DO:
     #d8 12, 1, 99, 37, 4, 6, 13, (w_K_M_CLR >> 8) | 0x80, w_K_M_CLR & 0xFF, 5, w_K_M_SHOW & 0xFF, w_K_M_SHOW >> 8
     #d8 2, 188, 75, 25, 4, 2, 13, 0, 12, 1, 48, 28
@@ -2791,6 +2775,22 @@ w_K_M_DO:
     #d8 30, 15, 1, 42, 37, 30, 15, 1, 47, 37, 30, 15
     #d8 1, 109, 37, 30, 4, 9, (w_K_M_COMMIT >> 8) | 0x80, w_K_M_COMMIT & 0xFF, 2, 186, 75, 26
     #d8 5, w_K_M_SHOW & 0xFF, w_K_M_SHOW >> 8, 13, 0
+w_F_M_DRAW:
+    #d8 1, 1, 1, 1, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1, 14, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 1
+    #d8 (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, 2, 96, 93, 25, 4, 7, 2, 96, 93, (w_ZTYPE >> 8) | 0x80
+    #d8 w_ZTYPE & 0xFF, 3, 4, 1, 92, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 0, 12, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF
+    #d8 39, 4, 11, 12, 2, 146, 75, 25, 27, (w_F_M_ROW >> 8) | 0x80, w_F_M_ROW & 0xFF, 33
+    #d8 3, 239, 13, (w_INK >> 8) | 0x80, w_INK & 0xFF, (w_SBX >> 8) | 0x80, w_SBX & 0xFF, 1, 2, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1
+    #d8 8, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 3, 12, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 33, 39, 4, 12
+    #d8 (w_SBX >> 8) | 0x80, w_SBX & 0xFF, 15, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1, 15, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 33, 3, 237
+    #d8 13, (w_SBX >> 8) | 0x80, w_SBX & 0xFF, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 33, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1, 9, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF
+    #d8 (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 2, 144, 75, 25, 39, 4, 30, (w_SBX >> 8) | 0x80, w_SBX & 0xFF, 2
+    #d8 146, 75, 25, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 1, 3, 28, 42, 2, 144, 75
+    #d8 25, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 28, 43, 16, 1, 3, 27, (w_AT >> 8) | 0x80, w_AT & 0xFF, 1
+    #d8 17, (w_GLYPH >> 8) | 0x80, w_GLYPH & 0xFF, 1, 1, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 1, 2, 27, (w_AT >> 8) | 0x80, w_AT & 0xFF
+    #d8 2, 148, 75, 23, 12, 4, 8, 10, 147, 1, 3, 28
+    #d8 5, w_CTYPE & 0xFF, w_CTYPE >> 8, 13, 2, 144, 75, 25, (w_U_GT_S >> 8) | 0x80, w_U_GT_S & 0xFF, 51, 7
+    #d8 6, 32, 105, 116, 101, 109, 115, 5, w_TYPE & 0xFF, w_TYPE >> 8, 0
 w_F_M_ROW:
     #d8 12, 2, 146, 75, 25, 28, 12, (w_F_M_ROWS >> 8) | 0x80, w_F_M_ROWS & 0xFF, 38, 40, 4
     #d8 3, 13, 13, 0, 1, 1, 14, 1, 2, 27, (w_AT >> 8) | 0x80, w_AT & 0xFF
@@ -2805,6 +2805,34 @@ w_F_M_ROW:
     #d8 0, (w_PEN >> 8) | 0x80, w_PEN & 0xFF, 1, 1, (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, 12, (w_ENT_GT_NAME >> 8) | 0x80, w_ENT_GT_NAME & 0xFF, 2, 112
     #d8 75, 10, 155, 51, 1, 13, 10, 155, 28, (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, (w_F_M_SIZE >> 8) | 0x80
     #d8 w_F_M_SIZE & 0xFF, 1, 1, (w_SPACES >> 8) | 0x80, w_SPACES & 0xFF, 1, 0, 5, w_PEN & 0xFF, w_PEN >> 8
+w_T_M_DISP:
+    #d8 7, 68, 105, 115, 112, 108, 97, 121
+
+#addr 0x3500
+w_E_M_KEY:
+    #d8 12, 1, 15, 37, 4, 4, 13, 5, w_E_M_SAVE & 0xFF, w_E_M_SAVE >> 8, 12, 1
+    #d8 2, 37, 4, 4, 13, 5, w_E_M_RUN & 0xFF, w_E_M_RUN >> 8, 1, 0, 53, 1
+    #d8 3, (w_SETW >> 8) | 0x80, w_SETW & 0xFF, (w_E_M_CUR >> 8) | 0x80, w_E_M_CUR & 0xFF, 1, 0, 2, 226, 75, 26, 1
+    #d8 0, 2, 227, 75, 26, 1, 0, 2, 220, 75, 24, 12
+    #d8 1, 14, 37, 4, 4, (w_E_M_CLEAR >> 8) | 0x80, w_E_M_CLEAR & 0xFF, 3, 6, 1, 0, 2
+    #d8 225, 75, 26, 12, 1, 17, 37, 4, 2, (w_E_M_UPK >> 8) | 0x80, w_E_M_UPK & 0xFF, 12
+    #d8 1, 18, 37, 4, 2, (w_E_M_DOWNK >> 8) | 0x80, w_E_M_DOWNK & 0xFF, 12, 1, 20, 37, 4
+    #d8 2, (w_E_M_RIGHTK >> 8) | 0x80, w_E_M_RIGHTK & 0xFF, 12, 1, 19, 37, 4, 2, (w_E_M_LEFTK >> 8) | 0x80, w_E_M_LEFTK & 0xFF, 12
+    #d8 1, 21, 37, 4, 8, 2, 214, 75, 23, 2, 210, 75
+    #d8 24, 12, 1, 5, 37, 4, 10, 2, 210, 75, 23, (w_E_M_EOL >> 8) | 0x80
+    #d8 w_E_M_EOL & 0xFF, 2, 210, 75, 24, 12, 1, 8, 37, 4, 2, (w_E_M_BKSP >> 8) | 0x80
+    #d8 w_E_M_BKSP & 0xFF, 12, 1, 127, 37, 4, 2, (w_E_M_DEL >> 8) | 0x80, w_E_M_DEL & 0xFF, 12, 1, 10
+    #d8 37, 15, 1, 32, 28, 1, 95, 38, 30, 4, 3, 12
+    #d8 (w_E_M_INS >> 8) | 0x80, w_E_M_INS & 0xFF, 13, (w_E_M_HS >> 8) | 0x80, w_E_M_HS & 0xFF, 2, 226, 75, 25, 4, 4, (w_E_M_TEXT >> 8) | 0x80
+    #d8 w_E_M_TEXT & 0xFF, 3, 17, 2, 227, 75, 25, 4, 11, 2, 214, 75
+    #d8 23, 2, 222, 75, 25, (w_E_M_LINE >> 8) | 0x80, w_E_M_LINE & 0xFF, 13, (w_E_M_INFO >> 8) | 0x80, w_E_M_INFO & 0xFF, (w_E_M_CUR >> 8) | 0x80, w_E_M_CUR & 0xFF
+    #d8 1, 1, 53, 0
+w_DRV_M_LOAD:
+    #d8 2, 96, 77, 2, 128, 75, 1, 4, 45, 2, 96, 77
+    #d8 (w_D0_ST_ >> 8) | 0x80, w_D0_ST_ & 0xFF, 2, (w_D_M_DIR) & 0xFF, (w_D_M_DIR) >> 8, 9, 16, 2, (fs_open) & 0xFF, (fs_open) >> 8, (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF
+    #d8 12, 40, 4, 21, 13, 35, 2, (w_D_M_FILES) & 0xFF, (w_D_M_FILES) >> 8, 27, 23, 9
+    #d8 16, 2, 0, 46, 9, 20, 2, (fs_load) & 0xFF, (fs_load) >> 8, (w_SYS0 >> 8) | 0x80, w_SYS0 & 0xFF, 3
+    #d8 1, 16, 2, 128, 75, 2, 96, 77, 1, 4, 45, 0
 
 ; pinboard_drv_mono.asm - the display driver MONO.DRV, expanded (after the
 ; lines of pinboard.asm)

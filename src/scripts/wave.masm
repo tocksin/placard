@@ -205,7 +205,6 @@ BTN_H     = 36              ; pause: 8 columns
 BTN_N     = 47              ; the next: 6 columns
 
 ; the menu block's bytes for Pinboard and this program (placard_menu.asm)
-MB_PHOTO  = 0x19            ; "S": Pinboard's Files card asks for a sound
 MB_PCLUS  = 0x1B            ; 4: the folder of the file asked for
 MB_PN     = 0x1F            ; its number among the folder's .WAV files
 

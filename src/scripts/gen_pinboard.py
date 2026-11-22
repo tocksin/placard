@@ -48,7 +48,7 @@ the mask (1 = the screen shows through), and the same in page PB_PTR +
 x100 for the white pixels.  Color: 3 bytes of 2 bpp (shifts 0-3) or 5 of
 4 bpp (shifts 0-1), at byte << 6 (or 5) | shift << 4 | row.
 
-Date: 11/21/2026
+Date: 11/22/2026
 """
 
 import os
@@ -301,7 +301,7 @@ def write_data(name):
            '; pens, the screen in cells and the cards\' first places; the pointer',
            '; and the font.',
            ';',
-           '; Date: 11/21/2026',
+           '; Date: 11/22/2026',
            '',
            '#addr DRV                   ; the entries (pinboard_hdr.masm: DRV_CELLS ...)']
     for label in ('d_cells', 'd_invc', 'd_hide', 'd_show', 'd_init'):
@@ -342,6 +342,7 @@ def write_data(name):
 
 MARK = '; ---DRIVER---'
 DRV, DRV_END = 0x2E00, 0x4000
+CORE2, CORE2_END = 0x3500, 0x3600     # a page of the core inside the driver's bytes
 ENTRIES = ('d_cells', 'd_invc', 'd_hide', 'd_show', 'd_init')
 
 
@@ -387,12 +388,13 @@ def main(argv):
                 sys.exit('driver %s: entry %s is not 4 bytes at x%04X' % (name, label, a))
         over = [a for a in prog if DRV <= a < DRV_END]
         images[name] = (prog, bytes(prog.get(a, 0) for a in range(DRV, DRV_END)))
-        print('driver %s: code to x%04X' % (name, max(a for a in over if a < 0x3600) + 1))
+        print('driver %s: code to x%04X' % (name, max(a for a in over if a < CORE2) + 1))
     # the core is the same bytes under every driver
     base = images['mono'][0]
     for name, (prog, _) in images.items():
         diff = [a for a in set(base) | set(prog)
-                if not DRV <= a < DRV_END and base.get(a) != prog.get(a)]
+                if not (DRV <= a < DRV_END and not CORE2 <= a < CORE2_END)
+                and base.get(a) != prog.get(a)]
         if diff:
             sys.exit('driver %s changes the core at x%04X' % (name, min(diff)))
     folder = os.path.join(HERE, '..', '..', 'sdcard', 'PINBOARD')

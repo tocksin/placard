@@ -47,7 +47,7 @@
 ;     python3 gen_photos.py                           sdcard/PHOTOS/*.PIC
 ;     python3 test_photo.py                           runs it in placard_sim
 ;
-; Date: 11/21/2026
+; Date: 11/22/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -74,7 +74,6 @@ SHOW_HI   = 2               ; slide show: 2 x 256 frames a picture
 FE_LO     = FS_ENTRY & 0xFF
 
 ; the menu block's bytes for Pinboard and this program (placard_menu.asm)
-MB_PHOTO  = 0x19            ; "V": Pinboard's Files card asks for a picture
 MB_PWIDE  = 0x1A            ; the rows' mode byte last used, 0: not chosen yet
 MB_PCLUS  = 0x1B            ; 4: the folder of the picture asked for
 MB_PN     = 0x1F            ; its number among the folder's .PIC files

@@ -3,7 +3,7 @@
 ; pens, the screen in cells and the cards' first places; the pointer
 ; and the font.
 ;
-; Date: 11/21/2026
+; Date: 11/22/2026
 
 #addr DRV                   ; the entries (pinboard_hdr.masm: DRV_CELLS ...)
     ld   d_cells >> 8, y
