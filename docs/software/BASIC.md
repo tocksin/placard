@@ -2,13 +2,14 @@
 
 PLACARD BASIC is the BASIC in the 32K ROM image.  It starts when the
 machine has no SD card (or no `DOS.PLC` on it), when `BOOT.CFG` names
-`BASIC`, or from the DOS (Ctrl+B in its file browser, or its `BASIC`
-command).  It is a 16-bit integer BASIC with strings, in
+`BASIC`, from the DOS (Ctrl+B in its file browser, or its `BASIC`
+command), or from Pinboard's Editor, which runs its text in BASIC
+(Ctrl+B there).  It is a 16-bit integer BASIC with strings, in
 the style of Microsoft BASIC: line numbers, `FOR`/`NEXT`, `GOSUB`,
 strings with `LEFT$`, `MID$` and friends, arrays, `DATA`, plus statements
 for the Placard's screen, graphics, sound and SD card.
 
-Date: 11/16/2026
+Date: 11/22/2026
 
 Source: `src/scripts/basic.masm` (the bytecode machine, about 1.5 KB of
 native code) and `src/scripts/basic.vm` (the interpreter, in bytecode,
@@ -39,8 +40,15 @@ useful anyway).
   carries on.  It is checked between statements and at every point a
   `LINE` draws, so a long line stops at once.  Esc also stops `LIST`.
 - **Esc held at power-up** starts the DOS instead of what `BOOT.CFG`
-  names; `DOS` from BASIC goes there too.
+  names.
+- **`EXIT`** (or `DOS`, the same) leaves BASIC for what started it: the
+  DOS, or Pinboard (its launcher, or its Editor with the text it ran).
 - Backspace edits the line being typed; lines are up to 158 characters.
+- **Started from Pinboard's Editor** ([PINBOARD.md](PINBOARD.md), Ctrl+B
+  there), BASIC loads the Editor's file and runs it at once.  The prompt
+  is then `Ready (EXIT or Ctrl+B: Pinboard)`: `EXIT`, or Ctrl+B at the
+  prompt, goes back to the Editor, and the file commands work in the program's folder
+  instead of the root.
 
 ## The language
 
@@ -109,7 +117,7 @@ In order of precedence, highest first:
 | `NOISE volume, rate, frames` | rate 1-128 |
 | `LOAD "name"`, `SAVE "name"` | the program as a text file; `.BAS` is added when the name has no dot |
 | `DIR`, `DEL "name"` | the current folder of the card; `DEL` deletes a file |
-| `DOS` | starts the DOS (`DOS.PLC` on the card) |
+| `EXIT`, `DOS` | leaves BASIC for what started it: the DOS (`DOS.PLC` on the card) or Pinboard |
 
 Several statements may share a line, separated by `:`.
 
@@ -286,7 +294,7 @@ native `FORNEXT`: add the step, compare with the limit (signed), and go
 back after the `FOR`.
 
 A program line is `[length][number low][number high][text][00]`; keywords
-are one byte each (x80-xC1, the order of `KWTAB`).  Numbers stay text and
+are one byte each (x80-xC2, the order of `KWTAB`).  Numbers stay text and
 are read when the line runs.  `FOR` and `GOSUB` keep their frames on the
 control stack at x1E00-x1EFF.
 

@@ -192,6 +192,8 @@ CONST MB_PWIDE 0x5D1A   \ its rows' mode byte (0: it asks which)
 CONST MB_PCLUS 0x5D1B   \ 4: the picture's folder
 CONST MB_PN 0x5D1F      \ and its number among the folder's .PIC files
 CONST MB_PARENT 0x5D40
+CONST RUNBLK 0x5DCC     \ 38: the Editor's state (E-LEN to E-DCL) while BASIC runs its text
+CONST FS_REM 0x4D28     \ the FAT reader: bytes of the open file left
 CONST MB_DCLUS 0x5D50
 CONST MB_FNAME 0x5D60
 
@@ -501,7 +503,7 @@ BYTES E-NONE c"(new text)" ;
    E-COL E-LEFT @ - 1+ E-ROW C@ 2 + AT IN-CLIP IF INVC THEN ;
 : E-DRAW ( -- )
    E-INFO E-TEXT
-   1 E-ROWS 2 + AT S" Ctrl+O save  Ctrl+N new  Ctrl+E line end" E-COLS CTYPE
+   1 E-ROWS 2 + AT S" Ctrl+O save  Ctrl+N new  Ctrl+B run" E-COLS CTYPE
    WX C@ E-COLS + 1+ GX C@ - SPACES
    3 TOPW = IF E-CUR THEN ;
 
@@ -669,6 +671,7 @@ BYTES E-DROPM c"Not saved: Ctrl+N again drops it" ;
    E-NEW 1 E-FULL C! ;
 : E-KEY ( key -- )
    DUP 15 = IF DROP E-SAVE EXIT THEN
+   DUP 2 = IF DROP E-RUN EXIT THEN
    0 PTR 3 SETW E-CUR
    0 E-FULL C! 0 E-LNF C! 0 E-MSG !
    DUP 14 = IF E-CLEAR ELSE 0 E-WARN C! THEN
@@ -739,13 +742,46 @@ BYTES E-BINM c"Not a text file" ;
    NAMEBUF MB_FNAME 13 CMOVE
    0 F-SEL C! 0 F-TOP C! 0 F-MSG ! DIR-READ 0 UPDATE ;
 : F-UP ( -- ) ROOT? IF EXIT THEN 46 NAMEBUF C! 46 NAMEBUF 1+ C! 0 NAMEBUF 2 + C! F-CD ;
-: F-GO ( -- )                           \ the program named in NAMEBUF
-   E-GUARD IF EXIT THEN
+: F-PREP ( -- )                         \ leaving, to come back: the menu block
    F-SEL C@ MB_SEL C! F-TOP C@ MB_TOP C!
    1 MB_MODE C! 0 MB_WHY C! 0 MB_SYNC C!
    80 MB_MENU C! HH C@ MB_T C! MM C@ MB_T 1+ C! SS C@ MB_T 2 + C!
    ROOT? IF SELF MB_PARENT 13 CMOVE THEN
-   LEAVE-DESK NAMEBUF R0 ! 0 0x800C SYS DROP ;
+   LEAVE-DESK ;
+: F-GO ( -- )                           \ the program named in NAMEBUF
+   E-GUARD IF EXIT THEN
+   F-PREP NAMEBUF R0 ! 0 0x800C SYS DROP ;
+\ The Editor's text run in BASIC (Ctrl+B).  It is saved first; its state
+\ (the name, the folder, the cursor) goes to the run block, where BASIC
+\ finds the file to load and run (MB_PHOTO: 66 "B"; basic.vm: PB?).
+\ BASIC comes back as a program does, and E-BACK1 and E-BACK2 put the
+\ text and the cursor back.  MB_PCLUS keeps the Files card's folder and
+\ Pinboard is run again from the root, as for a picture
+\ B-GO starts BASIC, for it to come back: mark 66 from the Editor, 1 from
+\ the launcher (BASIC starts empty)
+: B-GO ( mark -- )
+   MB_PHOTO C! DCLUS MB_PCLUS 4 CMOVE
+   0 MB_DCLUS ! 0 MB_DCLUS 2 + ! DCLUS D0!
+   F-PREP 0 0x8024 SYS DROP ;
+: E-RUN ( -- )
+   E-MOD C@ E-NAME C@ 0= OR IF E-SAVE THEN
+   E-MOD C@ E-NAME C@ 0= OR IF EXIT THEN
+   E-LEN RUNBLK 38 CMOVE 66 B-GO ;
+\ Back from BASIC.  E-BACK1 reads the file again before anything else is
+\ set up (a file that fills the text's room is read as whole 512s, over
+\ the desktop's variables): n + 1 for n bytes read, 0 for no text to put
+\ back.  E-BACK2 then puts the Editor's state back, the cursor at the
+\ start if the text is not the length it was, and its card in front
+: E-BACK1 ( -- n+1 | 0 )
+   MB_PHOTO C@ 66 = 0= IF 0 EXIT THEN
+   RUNBLK 34 + DCLUS 4 CMOVE
+   RUNBLK 20 + R0 ! {fs_open} SYS0
+   FS_REM 2 + @ OR FS_REM @ E-CAP U< 0= OR IF 0 EXIT THEN
+   FS_REM @ RUNBLK 20 + R0 ! EBUF R4 ! {fs_load} SYS0 IF DROP 0 EXIT THEN 1+ ;
+: E-BACK2 ( n+1 -- )
+   1- RUNBLK E-LEN 38 CMOVE
+   E-LEN @ SWAP E-STRIP E-LEN @ = 0= IF E-HOME THEN
+   0 E-MSG ! 1 3 WIN C! 3 RAISE ;
 : F-RUN ( -- ) 0 MB_PHOTO C! F-GO ;
 \ A picture (.PIC) or a sound (.WAV): the photo viewer or the sound
 \ player, PHOTO.PLC or WAVE.PLC in the card's root, is run as a program
@@ -949,8 +985,8 @@ BYTES MACT 0 1 2 3 4 5 254 255 ;
 : MENU-DO ( i -- )
    MACT + C@ DUP NAPP < IF OPEN EXIT THEN
    E-GUARD IF DROP EXIT THEN
-   LEAVE-DESK 0 MB_MENU C!
-   254 = IF 0 0x8024 SYS ELSE 0 0x8008 SYS THEN DROP ;
+   254 = IF 1 B-GO THEN
+   LEAVE-DESK 0 MB_MENU C! 0 0x8008 SYS DROP ;
 : MENU-HIT ( -- i | -1 )
    CELL MC C@ 1- 14 U< MR C@ MENU-Y - NMENU U< AND IF MR C@ MENU-Y - ELSE -1 THEN ;
 : MENU ( -- )
@@ -1021,6 +1057,7 @@ BYTES MACT 0 1 2 3 4 5 254 255 ;
    AGAIN ;
 
 : COLD ( -- )
+   E-BACK1
    NOCLIP 0 NZ C! 0 LASTB C! 0 TDIRTY C! 0 MOVED C!
    FRAME_LO C@ LASTF C! 0 ACC !
    WTAB 48 0 FILL
@@ -1029,5 +1066,6 @@ BYTES MACT 0 1 2 3 4 5 254 255 ;
    DUP IF DUP DRV-LOAD IF DROP 0 THEN THEN
    DUP DMODE C! MB_DMODE C! MODE-UP
    1 0 WIN C! 0 RAISE
+   DUP IF E-BACK2 ELSE DROP THEN
    REFRESH-ALL
    MAIN ;

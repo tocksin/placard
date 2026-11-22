@@ -3,7 +3,7 @@
 test_pinboard.py - Pinboard (pinboard.masm, pinboard.vm) from a card in the
 web emulator (web/placard_emu.js; needs node), driven by keys and the mouse
 
-    python3 test_pinboard.py            the checks below, about 20 s
+    python3 test_pinboard.py            the checks below, about 2 minutes
     python3 test_pinboard.py --png DIR  also writes each step's screen
 
 The card is the sdcard/ folder with BOOT.CFG = PINBOARD.PLC.  Each step
@@ -41,6 +41,11 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
      or 80 across once, and not at all from a color mode; Esc comes back
      to Pinboard in the picture's folder; a card with no PHOTO.PLC
      (.WAV files and the sound player: test_wave.py)
+ 12. Ctrl+B in the Editor saves the text and runs it in BASIC; Ctrl+B at
+     BASIC's prompt (or DOS) comes back to the Editor with the text and
+     the cursor; a program in a folder; Esc stops a program and stays in
+     BASIC; a new text is named first; EXIT in BASIC; the launcher's BASIC
+     comes back to Pinboard too
 
 Date: 11/22/2026
 """
@@ -707,6 +712,117 @@ def main(argv):
     check('no PHOTO.PLC on the card: Files says so and stays in the folder',
           n.has('Its program is not on the card', 29) and n.has('{ PHOTOS', 2) and n.chosen() == photos[0])
     check('and Backspace still goes up', o['root'].has('{ \\', 2))
+
+    # ---- 12: the Editor's text run in BASIC -----------------------------
+    print('12. Ctrl+B: the text run in BASIC, and back')
+    bas = dict(files)
+    bas['HELLO.BAS'] = b'10 PRINT "HI FROM BASIC"\r\n20 A=6*7\r\n30 PRINT A\r\n'
+    bas['ART/NOTE.TXT'] = b'a folder\r\n'
+    bas['ART/LOOP.BAS'] = b'10 PRINT "LOOPING"\n20 GOTO 20\n'
+    bimg = sdimage.make(bas)
+    bnames = [e[0] for e in sdimage.listdir(bimg)]
+    blist = [e[0] for e in sdimage.listdir(bimg, 'ART') if not e[0].startswith('.')]
+
+    def btext(scr, n=4):
+        return [r.rstrip() for r in scr.rows if r.strip()][:n]
+
+    s = Script()
+    for _ in range(bnames.index('HELLO.BAS')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(60)
+    s.key(K_DOWN)
+    s.chord(K_CTRL, CALC_KEYS['e'])
+    s.type('+1')
+    s.shot('edited')
+    s.chord(K_CTRL, CALC_KEYS['b'])
+    s.shot('ran', 500)
+    s.type('print a*2\n')
+    s.shot('typed', 60)
+    s.chord(K_CTRL, CALC_KEYS['b'])
+    s.shot('back', 400)
+    s.type('z')
+    s.shot('cursor')
+    s.key(K_TAB)
+    s.shot('files', 40)
+    o = s.run(bas, png=args.png, tag='12_')
+    want = b'10 PRINT "HI FROM BASIC"\r\n20 A=6*7+1\r\n30 PRINT A\r\n'
+    r = o['ran']
+    check('Ctrl+B saves the text', o['edited'].has('HELLO.BAS *', 11)
+          and sdimage.read(s.card, 'HELLO.BAS') == want)
+    check('and BASIC runs it', r.has('PLACARD BASIC', 0) and r.has('HI FROM BASIC') and r.has('43')
+          and r.has('Ready (EXIT or Ctrl+B: Pinboard)') and not r.has('Pinboard ', 58))
+    check('BASIC takes commands after it', o['typed'].has('86'))
+    b = o['back']
+    check('Ctrl+B in BASIC: the Editor again, with the text',
+          b.has(' Pinboard ', 58) and b.has('* Editor', 10) and b.has('HELLO.BAS', 11)
+          and not b.has('HELLO.BAS *', 11)
+          and text(b, 3) == ['10 PRINT "HI FROM BASIC"', '20 A=6*7+1', '30 PRINT A'])
+    check('and the cursor where it was', text(o['cursor'], 3)[1] == '20 A=6*7+1z')
+    check('the Files card as it was', o['files'].has('{ \\', 2) and o['files'].chosen() == 'HELLO.BAS')
+
+    s = Script()                        # from a folder; Esc stops it; DIR, DOS
+    for _ in range(bnames.index('ART')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(40)
+    for _ in range(blist.index('LOOP.BAS')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(60)
+    s.chord(K_CTRL, CALC_KEYS['b'])
+    s.shot('loop', 500)
+    s.key(K_ESC, hold=20)
+    s.shot('break', 60)
+    s.type('dir\n')
+    s.shot('dir', 120)
+    s.type('dos\n')
+    s.shot('back', 400)
+    s.key(K_TAB)
+    s.shot('files', 40)
+    o = s.run(bas, png=args.png, tag='12b_')
+    check('a program in a folder runs', o['loop'].has('LOOPING') and not o['loop'].has('Ready'))
+    check('Esc stops it and stays in BASIC', o['break'].has('Break in 20')
+          and o['break'].has('Ready (EXIT or Ctrl+B: Pinboard)'))
+    check('BASIC\'s DIR is the program\'s folder', o['dir'].has('LOOP.BAS') and o['dir'].has('NOTE.TXT')
+          and not o['dir'].has('PINBOARD'))
+    b = o['back']
+    check('DOS: the Editor again', b.has('* Editor', 10) and b.has('LOOP.BAS', 11)
+          and text(b, 2) == ['10 PRINT "LOOPING"', '20 GOTO 20'])
+    check('and Files in the folder', o['files'].has('{ ART', 2) and o['files'].chosen() == 'LOOP.BAS')
+
+    s = Script()                        # a new text: its name is asked first
+    launcher(s, 3)
+    s.type('10 print 5*5\n')
+    s.chord(K_CTRL, CALC_KEYS['b'])
+    s.shot('ask')
+    s.type('five.bas\n')
+    s.shot('ran', 500)
+    s.type('exit\n')
+    s.shot('back', 400)
+    o = s.run(bas, png=args.png, tag='12c_')
+    check('a new text asks for its name', o['ask'].has('Save as: _', 11))
+    check('then it is saved and run', sdimage.read(s.card, 'FIVE.BAS') == b'10 print 5*5\r\n'
+          and o['ran'].has('25') and o['ran'].has('Ready (EXIT or Ctrl+B: Pinboard)'))
+    check('EXIT comes back', o['back'].has('FIVE.BAS', 11) and text(o['back'], 1) == ['10 print 5*5'])
+
+    s = Script()                        # the launcher's BASIC: empty, and EXIT comes back
+    for _ in range(bnames.index('ART')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(40)
+    s.key(K_DOWN)
+    launcher(s, 6)
+    s.shot('basic', 300)
+    s.type('exit\n')
+    s.shot('back', 400)
+    o = s.run(bas, png=args.png, tag='12d_')
+    check('the launcher\'s BASIC starts with no program',
+          o['basic'].has('PLACARD BASIC', 0) and btext(o['basic'], 3)[2] == 'Ready')
+    b = o['back']
+    check('EXIT: Pinboard again, Files in its folder, no Editor',
+          b.has(' Pinboard ', 58) and b.has('{ ART', 2) and b.chosen() == blist[1]
+          and not b.has('Editor'))
 
     print('PASS' if check.ok else 'FAIL')
     return 0 if check.ok else 1

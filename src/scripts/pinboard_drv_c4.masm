@@ -28,7 +28,7 @@
 ; color of a 0 bit in every pixel of a byte, and CFX, that XOR the color
 ; of a 1 bit; a character from x80 up is drawn with the two swapped.
 ;
-; Date: 11/17/2026
+; Date: 11/22/2026
 ; ============================================================
 .include "pinboard_hdr.masm"
 ; ---DRIVER---
@@ -47,7 +47,7 @@ IMASK   = 0xFF          ; INVC: white <-> black
 MODEB   = 0x85          ; a row's mode byte: 160 reads, 2x, 2 bpp
 
 .prefix pd
-.region DRV + 0x100, PB_PTR
+.region DRV + 0x100, CORE2
 #include "pinboard_data_c4.asm"
 
 .macro VLOW                     ; AC = GY: VLB = the low byte of its first row

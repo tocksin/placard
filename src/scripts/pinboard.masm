@@ -47,13 +47,14 @@
 ;                                 drivers in ../../sdcard/PINBOARD
 ;     python3 test_pinboard.py    runs it from a card in the emulator
 ;
-; Date: 11/17/2026
+; Date: 11/22/2026
 ; ============================================================
 
 .include "pinboard_hdr.masm"
 
 .prefix pb
 .region 0x0100, 0x1F00
+.region CORE2, PB_PTR         ; bytecode only: a page inside the driver's bytes, the same in every driver
 .region 0x2000, DRV
 
 ; ============================================================
