@@ -4,6 +4,9 @@ pinboard_emu.py - run a card program in the web emulator (web/placard_emu.js,
 with node) from a script of keys and mouse moves, for test_pinboard.py
 
     run(files, inputs, shots, frames)
+    run(files, inputs, shots, frames, audio=True)     and what the sound DAC
+        played, one sample a scan line from power-up, as rams['audio']
+        (test_wave.py)
 
 files   {path: bytes} of the card (sdimage.from_folder plus BOOT.CFG)
 inputs  [(frame, kind, value)]: 'press' / 'release' a PS/2 set 2 code
@@ -14,7 +17,7 @@ returns {frame: RAM bytes (65536)}, and the card image at the end
 screen_png(ram, path) draws a RAM's screen; cells(ram, font) reads the
 80 x 60 characters of a 1 bpp screen back through a font.
 
-Date: 11/21/2026
+Date: 11/22/2026
 """
 
 import json
@@ -38,7 +41,7 @@ const m = new P.Machine();
 m.setRom(new Uint8Array(fs.readFileSync(cfg.rom)));
 m.reset(false, 0);
 m.revB = !!cfg.revB;
-m.audioMax = 0;
+m.audioMax = cfg.audio ? 1e9 : 0;
 m.io.kbd = new P.Ps2Keyboard();
 if (cfg.mouse) m.io.mouse = new P.Ps2Mouse();
 m.io.sd = new P.SdCard(new Uint8Array(fs.readFileSync(cfg.card)));
@@ -68,6 +71,7 @@ while (m.clocks < end) {
     while (m.clocks >= m.nextEvt) m.event();
 }
 fs.writeFileSync(cfg.dir + '/card.out', m.io.sd.image);
+if (cfg.audio) fs.writeFileSync(cfg.dir + '/audio.bin', Uint8Array.from(m.audio));
 console.log(JSON.stringify({pc: m.pc, map: m.map}));
 '''
 
@@ -88,14 +92,14 @@ def rom_image():
     return _rom
 
 
-def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False):
+def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False, audio=False, spc=1, size_kb=4096):
     tmp = tempfile.mkdtemp()
     p = lambda n: os.path.join(tmp, n)   # noqa: E731
     open(p('rom.bin'), 'wb').write(rom_image())
-    open(p('card.img'), 'wb').write(sdimage.make(files))
+    open(p('card.img'), 'wb').write(sdimage.make(files, size_kb=size_kb, spc=spc))
     open(p('run.js'), 'w').write(NODE_RUN)
     shots = sorted(set(shots))
-    json.dump({'rom': p('rom.bin'), 'card': p('card.img'), 'frames': frames, 'mouse': mouse, 'px': px, 'revB': rev_b,
+    json.dump({'rom': p('rom.bin'), 'card': p('card.img'), 'frames': frames, 'mouse': mouse, 'px': px, 'revB': rev_b, 'audio': audio,
                'inputs': sorted(inputs, key=lambda i: i[0]), 'shots': shots, 'dir': tmp},
               open(p('cfg.json'), 'w'))
     js = subprocess.run(['node', p('run.js'),
@@ -104,6 +108,8 @@ def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False):
     if js.returncode:
         raise RuntimeError('node: ' + js.stderr)
     rams = {f: open(p('ram%d.bin' % f), 'rb').read() for f in shots if f < frames}
+    if audio:
+        rams['audio'] = open(p('audio.bin'), 'rb').read()
     return rams, open(p('card.out'), 'rb').read()
 
 

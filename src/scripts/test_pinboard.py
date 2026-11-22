@@ -40,8 +40,9 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
      which shows that picture and the others of its folder; it asks 160
      or 80 across once, and not at all from a color mode; Esc comes back
      to Pinboard in the picture's folder; a card with no PHOTO.PLC
+     (.WAV files and the sound player: test_wave.py)
 
-Date: 11/21/2026
+Date: 11/22/2026
 """
 
 import argparse
@@ -130,9 +131,10 @@ class Script:
         self.t += settle
         self.shots.append((self.t, name, bpp))
 
-    def run(self, files, mouse=True, png=None, tag='', rev_b=False):
+    def run(self, files, mouse=True, png=None, tag='', rev_b=False, audio=False, spc=1, size_kb=4096):
         rams, card = pe.run(files, self.inp, [t for t, _, _ in self.shots], self.t + 5,
-                            mouse=mouse, rev_b=rev_b)
+                            mouse=mouse, rev_b=rev_b, audio=audio, spc=spc, size_kb=size_kb)
+        self.audio = rams.get('audio')
         out = {}
         for t, name, bpp in self.shots:
             if png:
@@ -703,7 +705,7 @@ def main(argv):
     o = s.run(bare, png=args.png, tag='11c_')
     n = o['none']
     check('no PHOTO.PLC on the card: Files says so and stays in the folder',
-          n.has('PHOTO.PLC is not on the card', 29) and n.has('{ PHOTOS', 2) and n.chosen() == photos[0])
+          n.has('Its program is not on the card', 29) and n.has('{ PHOTOS', 2) and n.chosen() == photos[0])
     check('and Backspace still goes up', o['root'].has('{ \\', 2))
 
     print('PASS' if check.ok else 'FAIL')

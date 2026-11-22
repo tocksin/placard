@@ -8,7 +8,7 @@ calculator and a text editor.  It works with the PS/2 mouse, the keyboard, or bo
 in 2 colors on any board and in 4 or 16 colors on a rev B board
 ([Display](#display)).
 
-Date: 11/21/2026
+Date: 11/22/2026
 
 ![Pinboard in the emulator: the Files, Clock, Calc and Editor cards](../../reference/pinboard.png)
 
@@ -51,14 +51,14 @@ starts BASIC, or goes back to the DOS.
 ## Files
 
 The Files card lists the folder: a mark for a folder, a program
-(`.PLC`), a picture (`.PIC`) or another file, the name, and the size.  The line under the
+(`.PLC`), a picture (`.PIC`) or another file, the name, and the size.  A sound (`.WAV`) has the mark of another file.  The line under the
 title names the folder; the last line counts the entries or says why
 something did not work.
 
 | Key | Mouse | Does |
 |-----|-------|------|
 | Up, Down | click a row | moves the bar; the list scrolls |
-| Enter | click the chosen row again | runs the program, opens the folder, shows the picture ([below](#pictures)), or opens another file in the [Editor](#editor) |
+| Enter | click the chosen row again | runs the program, opens the folder, shows the picture ([below](#pictures)), plays the sound ([below](#sounds)), or opens another file in the [Editor](#editor) |
 | Backspace | click the arrow by the folder's name | the folder above |
 | | click the scroll bar, above or below its middle | scrolls 5 rows |
 
@@ -119,8 +119,22 @@ the answer until power-off; H while a picture shows changes it.
 
 Files passes the viewer the folder and the picture's number in the menu
 block (x5D19-x5D1F) and runs it as it runs any program.  With no
-`PHOTO.PLC` on the card the Files card says so.  Unsaved text in the
-Editor keeps Pinboard from leaving for a picture, as for a program.
+`PHOTO.PLC` on the card the Files card says "Its program is not on the
+card".  Unsaved text in the Editor keeps Pinboard from leaving for a
+picture, as for a program.
+
+## Sounds
+
+Enter on a `.WAV` file (or a click on the chosen one) runs the sound
+player, `WAVE.PLC` in the card's root folder ([WAVE.md](WAVE.md)), on
+that file: an 8-bit mono recording that it reads from the card while it
+plays.  The player has the whole screen: Space pauses, Right or Enter
+play the folder's next file, Left or Backspace the one before.  When the
+folder's last file ends, or at Esc, Pinboard comes back in the same
+folder with the same entry chosen and the clock kept.
+
+Files passes the player the folder and the file's number the way it does
+for a picture (the mark in x5D19 is "S" instead of "V").
 
 ## Editor
 
@@ -255,7 +269,7 @@ Machine code does what has to be quick:
 | x4C00-x4CFF | the interpreter's return stack |
 | x5400-x59FF | the folder: 96 entries of 16 bytes |
 | x5D15-x5D18 | the time and the display's mode, kept in the menu block while a program runs |
-| x5D19-x5D1F | for the photo viewer: the mark "V", the rows' mode byte, the picture's folder and its number |
+| x5D19-x5D1F | for the photo viewer and the sound player: the mark "V" or "S", the viewer's rows' mode byte, the file's folder and its number among the folder's files of its kind |
 
 A card is a row of four tables in `pinboard.vm`: its title and the words
 that draw it (`DRAWTAB`), take a key (`KEYTAB`) and take a click
@@ -281,4 +295,5 @@ where the 2-color screen comes back; and pictures: the photo viewer run
 from the `PHOTOS` folder and from another folder, its one question, the
 picture's bytes on the screen, the next and the one before, coming back to
 the folder in 2 and in 4 colors, and a card with no `PHOTO.PLC`.
+`test_wave.py` checks `.WAV` files from the Files card.
 `--png folder` saves each step's screen.
