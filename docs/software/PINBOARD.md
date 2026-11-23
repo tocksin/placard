@@ -8,7 +8,7 @@ calculator and a text editor.  It works with the PS/2 mouse, the keyboard, or bo
 in 2 colors on any board and in 4 or 16 colors on a rev B board
 ([Display](#display)).
 
-Date: 11/22/2026
+Date: 11/23/2026
 
 ![Pinboard in the emulator: the Files, Clock, Calc and Editor cards](../../reference/pinboard.png)
 
@@ -107,8 +107,9 @@ Enter on a `.PIC` file (or a click on the chosen one) runs the photo
 viewer, `PHOTO.PLC` in the card's root folder
 ([PHOTOS.md](PHOTOS.md)), on that picture.  The viewer has the whole
 screen: Space, Right or Enter show the folder's next picture, Left or
-Backspace the one before, S starts a slide show, and Esc comes back to
-Pinboard, in the same folder with the same entry chosen and the clock
+Backspace the one before, S starts a slide show, E starts the picture
+editor (pencil, brush, line, rectangle, fill, colors, undo, save), and Esc
+comes back to Pinboard, in the same folder with the same entry chosen and the clock
 kept.  The pictures can be in any folder, not only `PHOTOS`.
 
 A picture is 160 pixels across on a rev B board and 80 across on a rev A
