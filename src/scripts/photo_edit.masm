@@ -1,0 +1,2882 @@
+; ============================================================
+; photo_edit.masm - the picture editor of PHOTO.PLC (photo.masm includes
+; this file; E while a picture shows starts it)
+; ============================================================
+;
+; The picture on the screen is the file: video RAM x6000-xFFFF, 160
+; byte columns of 256 bytes, 240 rows of them shown (photo.masm).  The
+; editor draws straight into it.  On a rev B board in 160 across (mode
+; byte x87) a pixel is one byte; in 80 across (x07, any board) the screen
+; shows the odd byte columns, and the editor writes a pixel to the odd
+; column and the even one before it, so the file is right at both widths.
+;
+; The bar: 32 picture rows at the bottom of the screen (M: at the top),
+; drawn over the picture, whose bytes under it are kept (TBS) and put back
+; when the bar goes away, moves or the picture is filled, and into the
+; sectors when the picture is saved.  Its first 16 rows are two text rows
+; (mode byte x04: 1 bpp, 2x, 80 characters of the ROM's font): the tools
+; and commands, then the file's name, the brush size, the pointer's place
+; and a message.  Its last 16 rows are 8 bpp rows of 80 cells (x07): the
+; 256 colors in 4 rows of 64, the ink and the paper.
+;
+;     P pencil    B brush    E eraser (the brush in the paper color)
+;     L line      R rectangle    F fill    K pick a color from the picture
+;     U undo      S save     A save as    N new    H or Tab: the bar away
+;     and back    M the bar to the other edge   [ ] brush size
+;     X or Esc: back to the viewer
+;     the arrows move the pointer, Space is the left button, Enter the right
+;
+; The mouse: the left button draws, or chooses in the bar (a color: the
+; ink); the right button on a color makes it the paper, on the picture it
+; takes the bar away or brings it back.
+;
+; Undo takes back the last thing drawn.  What a tool changes is noted as
+; it draws (the journal: a pixel's place and old color, in 80 across
+; the old color of both its bytes; for a fill, each run of pixels and the
+; one old color, which undo gives both bytes), up to JPAGES x 256 notes.  A line
+; or rectangle being pulled is undone and drawn again as the pointer
+; moves.  Something bigger than the journal cannot be undone.
+;
+; Reading the video RAM needs the map at FF (every section RAM: the ROM
+; and the library are then gone), so the drawing runs between MAPFF and
+; MAP07 and returns through e_leave, a copy of lib_leave in the RAM.
+;
+; RAM: zero page x40-x9F and x2F, x3D-x3F; the tables below.
+;
+; Date: 11/23/2026
+; ============================================================
+
+ed_pxl  = 0x40              ; the pointer: X 0-639
+ed_pxh  = 0x41
+ed_pyl  = 0x42              ; Y 0-479
+ed_pyh  = 0x43
+ed_x    = 0x44              ; its pixel in the picture: 0-159 or 0-79
+ed_y    = 0x45              ; its row, 0-239
+ed_cc   = 0x46              ; its cell, 0-79 (X / 8)
+ed_zone = 0x47              ; 0 the picture, 1 the tools, 2 the status row, 3 the colors
+ed_zr   = 0x48              ; its row in the bar, 0-31
+ed_wide = 0x49              ; 1: 160 across
+ed_xmax = 0x4A              ; 159 or 79
+ed_fst  = 0x4B              ; pages a pixel: 1 or 2
+ed_pb   = 0x4C              ; the page of pixel 0: x60, or x61 (the odd one of the pair)
+ed_ux   = 0x4E              ; an arrow key's step in X: 4 or 8
+ed_ux3  = 0x4F              ; and when held long
+ed_tool = 0x50              ; 0 pencil 1 brush 2 eraser 3 line 4 rectangle 5 fill 6 pick
+ed_ink  = 0x51
+ed_paper = 0x52
+ed_size = 0x53              ; the brush: 1-4
+ed_sw   = 0x54              ; its pixels across
+ed_sh   = 0x55              ; its rows
+ed_tb   = 0x56              ; 1: the bar is on the screen
+ed_tby  = 0x57              ; its first row: 208 or 0
+ed_tlo  = 0x58              ; that row's low byte: 193 or 32
+ed_mpg  = 0x59              ; its rows' mode bytes
+ed_mlo  = 0x5A
+ed_cy0  = 0x5B              ; the rows there is to draw in: all but the bar's
+ed_cy1  = 0x5C
+ed_btn  = 0x5D              ; the buttons: bit 0 left, bit 1 right
+ed_ob   = 0x5E              ; and a frame ago
+ed_drag = 0x5F              ; 1: a tool is drawing, 2: colors are being picked
+ed_lx   = 0x60              ; the point last drawn to
+ed_ly   = 0x61
+ed_ax   = 0x62              ; where a line or rectangle began
+ed_ay   = 0x63
+ed_ty   = 0x64              ; the pointer's row, kept out of the bar
+ed_col  = 0x65              ; the color drawn
+ed_stmp = 0x66              ; 1: every point is the brush
+ed_jl   = 0x67              ; the journal's notes
+ed_jh   = 0x68
+ed_jk   = 0x69              ; 0: pixels, 1: runs (a fill)
+ed_jold = 0x6A              ; the runs' old color
+ed_jov  = 0x6B              ; 1: more was drawn than the journal holds
+ed_tbm  = 0x6C              ; 1: the bar may cover what the journal notes
+ed_dirty = 0x6D             ; 1: changed since it was saved
+ed_named = 0x6E             ; 0: a new picture with no name yet
+ed_ask  = 0x6F              ; 1: "Discard?", 2: a name is being typed
+ed_pend = 0x70              ; what "Discard?" was asked for: 1 leave, 2 new
+ed_nl   = 0x71              ; characters of the name typed
+ed_key  = 0x72
+ed_hold = 0x73              ; frames an arrow key has been down
+ed_kx   = 0x74              ; this frame's step
+ed_ky   = 0x75
+ed_do   = 0x76              ; the command to do (the bar's numbers, 0 none)
+ed_msg  = 0x77              ; the message shown
+ed_was  = 0x78              ; the bar was on the screen
+ed_mok  = 0x79              ; 0: a mouse runs
+ed_qx   = 0x7A              ; a pixel: e_pset, e_getpix
+ed_qy   = 0x7B
+ed_t    = 0x7C              ; scratch
+ed_k    = 0x7D
+ed_m    = 0x7E
+ed_cx   = 0x7F              ; a point: e_dot
+ed_cy   = 0x80
+ed_x0   = 0x81              ; a line: e_line
+ed_y0   = 0x82
+ed_x1   = 0x83
+ed_y1   = 0x84
+ed_dx   = 0x85
+ed_dy   = 0x86
+ed_sx   = 0x87
+ed_sy   = 0x88
+ed_err  = 0x89
+ed_n    = 0x8A
+ed_si   = 0x8B              ; the brush's counters
+ed_sj   = 0x8C
+ed_sox  = 0x8D
+ed_soy  = 0x8E
+ed_tc   = 0x8F              ; text: the column, 0-79
+ed_tr   = 0x90              ; the low byte of the text row's first line
+ed_inv  = 0x91              ; x80: black on white (the font's 80-FF)
+ed_pn   = 0x92              ; screen bytes kept under the pointer
+ed_p2   = 0x93              ; 1: each is two bytes (the page after too)
+ed_bx   = 0x94              ; the cross: its middle, the last pixel across,
+ed_plim = 0x95              ; the rows it may be in
+ed_py0  = 0x96
+ed_py1  = 0x97
+ed_fpg  = 0x98              ; fill: the pixel taken from the stack
+ed_flo  = 0x99
+ed_fl   = 0x9A              ; its run's first and last page
+ed_fr   = 0x9B
+ed_ftg  = 0x9C              ; the color filled over
+ed_spl  = 0x9D              ; pixels on the stack
+ed_sph  = 0x9E
+ed_nlo  = 0x9F              ; the row above or below
+ed_run  = 0x2F              ; 1: in a run of that color
+ed_bl   = 0x3D              ; TBS: the next byte
+ed_bh   = 0x3E
+ed_pe   = 0x3F              ; a pair's even page
+
+TBS     = 0x2500            ; 15 pages: the picture under the bar, 48 bytes a
+                            ; pair of pages (32 rows of the odd, 16 of the even)
+PSV     = 0x3400            ; under the pointer: page, low byte, 2 bytes (16 each)
+NB      = 0x3440            ; the name typed, 8 characters
+JA      = 0x3500            ; the journal: page (a run's first page)
+JB      = 0x3B00            ; low byte
+JC      = 0x4100            ; old color (a run's last page)
+JD      = 0x4700            ; in 80 across: the old color of the even page
+JPAGES  = 6                 ; pages each: 1,536 notes
+SA      = 0x5400            ; 2 pages: fill's stack, the pages
+SB      = 0x5600            ; 2 pages: and the low bytes
+SBUF    = 0x5800            ; 2 pages: a sector on its way to the card
+
+fs_create = 0x8010          ; the DOS's FAT writer (docs/software/DOS.md)
+fs_write  = 0x8014
+fs_close  = 0x8018
+
+.macro MAPFF                    ; every section RAM: the video RAM can be read
+    ld   0xFF, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+.endm
+.macro MAP07                    ; the ROM back above x6000: the library
+    ld   0x07, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+.endm
+.macro LOWIDX                   ; AC = a row, 0-239: AC = its low byte in a page
+    add  16, ac
+    shl
+    bcc  lw\@
+    or   1, ac
+lw\@:
+.endm
+.macro STROW                    ; text goes to the status row, black on white
+    ld   [ed_tlo], ac
+    add  16, ac
+    ld   ac, [ed_tr]
+    ld   0x80, ac
+    ld   ac, [ed_inv]
+.endm
+
+.leave e_leave
+
+; e_leave - lib_leave, in the RAM
+.chunk
+e_leave:
+    ld   ac, [SAVE_AC]
+    ld   [SP], ac
+    inc
+    ld   ac, x
+    inc
+    ld   ac, [SP]
+    ld   [x], ac
+    ld   ac, [LINK_LO]
+    ld   [SP], x
+    ld   [x], ac
+    ld   ac, y
+    ld   [SAVE_AC], ac
+    jmp  [LINK_LO]
+
+; ============================================================
+; edit - the editor starts: the picture ph_n is on the screen
+; ============================================================
+.chunk
+edit:
+    clr  ac
+    ld   ac, [ph_show]
+    ld   ac, [ed_ask]
+    ld   ac, [ed_drag]
+    ld   ac, [ed_pn]
+    ld   ac, [ed_dirty]
+    ld   ac, [ed_msg]
+    ld   ac, [ed_hold]
+    ld   ac, [ed_tool]
+    ld   ac, [ed_do]
+    ld   ac, [ed_paper]
+    ld   ac, [ed_tb]
+    ld   ac, [ed_pyh]
+    ld   1, ac
+    ld   ac, [ed_named]
+    ld   ac, [ed_pxh]
+    ld   0xFF, ac
+    ld   ac, [ed_ink]
+    ld   2, ac
+    ld   ac, [ed_size]
+    ld   3, ac
+    ld   ac, [ed_ob]
+    ld   0x40, ac
+    ld   ac, [ed_pxl]
+    ld   200, ac
+    ld   ac, [ed_pyl]
+    ld   208, ac
+    ld   ac, [ed_tby]
+    ld   193, ac
+    ld   ac, [ed_tlo]
+    ld   0x5B, ac
+    ld   ac, [ed_mpg]
+    ld   0xC0, ac
+    ld   ac, [ed_mlo]
+    GOTO eedit2
+
+.chunk
+eedit2:
+    ld   [ph_mode], ac
+    and  0x80, ac
+    beq  ee2_c
+    ld   1, ac
+    ld   ac, [ed_wide]
+    ld   ac, [ed_fst]
+    ld   159, ac
+    ld   ac, [ed_xmax]
+    ld   0x60, ac
+    ld   ac, [ed_pb]
+    ld   4, ac
+    ld   ac, [ed_ux]
+    ld   12, ac
+    ld   ac, [ed_ux3]
+    bra  ee2_d
+ee2_c:
+    ld   ac, [ed_wide]
+    ld   2, ac
+    ld   ac, [ed_fst]
+    ld   79, ac
+    ld   ac, [ed_xmax]
+    ld   0x61, ac
+    ld   ac, [ed_pb]
+    ld   8, ac
+    ld   ac, [ed_ux]
+    ld   24, ac
+    ld   ac, [ed_ux3]
+ee2_d:
+    CALL e_dims
+    CALL e_jreset
+    ld   [MOUSE_ST], ac         ; Pinboard's mouse runs on
+    blt  ee2_run
+    CALL mouse_init
+    bra  ee2_set
+ee2_run:
+    clr  ac
+ee2_set:
+    ld   ac, [ed_mok]
+    CALL etb_show
+    CALL e_locate
+    CALL ep_show
+    GOTO e_loop
+
+; e_dims - the brush's pixels and rows for its size (a leaf)
+.chunk
+e_dims:
+    ld   [ed_size], ac
+    ld   ac, [ed_sw]
+    shl
+    ld   ac, [ed_sh]
+    ld   [ed_wide], ac
+    bne  edm_x
+    ld   [ed_sh], ac
+    shl
+    ld   ac, [ed_sh]
+edm_x:
+    RET
+
+; e_jreset - an empty journal (a leaf)
+.chunk
+e_jreset:
+    clr  ac
+    ld   ac, [ed_jl]
+    ld   ac, [ed_jh]
+    ld   ac, [ed_jk]
+    ld   ac, [ed_jov]
+    ld   ac, [ed_tbm]
+    RET
+
+; ============================================================
+; the frame loop: the mouse and the arrow keys move the pointer, the
+; buttons draw or choose, then the keys
+; ============================================================
+.chunk
+e_loop:
+    ld   1, ac
+    CALL wait_frames_io
+    CALL kbd_scan
+    ld   [ed_ask], ac
+    beq  eel_1
+    GOTO e_asking
+eel_1:
+    ld   ac, [ed_do]
+    ld   [ed_mok], ac
+    bne  eel_nom
+    CALL mouse_poll
+    bne  eel_keys                ; something new: MOUSE_DX, MOUSE_DY
+eel_nom:
+    clr  ac
+    ld   ac, [MOUSE_DX]
+    ld   ac, [MOUSE_DY]
+eel_keys:
+    GOTO e_arrows
+
+; the arrow keys: a step at once, then after a quarter second a step a
+; frame, and three a frame when held long (KBD_NOW: 0 = the key is down)
+.chunk
+e_arrows:
+    ld   [KBD_NOW + 7], ac      ; Left, Down, Right
+    and  0xE0, ac
+    xor  0xE0, ac
+    ld   ac, [ed_t]
+    ld   [KBD_NOW + 6], ac      ; Up
+    and  0x20, ac
+    xor  0x20, ac
+    or   [ed_t], ac
+    bne  eew_held
+    ld   ac, [ed_hold]
+eew_none:
+    GOTO e_btn
+eew_held:
+    ld   [ed_hold], ac
+    beq  eew_one
+    xor  40, ac
+    beq  eew_fast
+    ld   [ed_hold], ac
+    inc
+    ld   ac, [ed_hold]
+    sub  15, ac
+    bcs  eew_none
+    bra  eew_slow
+eew_one:
+    ld   1, ac
+    ld   ac, [ed_hold]
+eew_slow:
+    ld   [ed_ux], ac
+    ld   ac, [ed_kx]
+    ld   2, ac
+    ld   ac, [ed_ky]
+    bra  eew_go
+eew_fast:
+    ld   [ed_ux3], ac
+    ld   ac, [ed_kx]
+    ld   6, ac
+    ld   ac, [ed_ky]
+eew_go:
+    GOTO e_arrow2
+
+.chunk
+e_arrow2:
+    ld   [KBD_NOW + 7], ac
+    and  0x20, ac
+    bne  eew_r
+    ld   [MOUSE_DX], ac
+    sub  [ed_kx], ac
+    ld   ac, [MOUSE_DX]
+eew_r:
+    ld   [KBD_NOW + 7], ac
+    and  0x80, ac
+    bne  eew_u
+    ld   [MOUSE_DX], ac
+    add  [ed_kx], ac
+    ld   ac, [MOUSE_DX]
+eew_u:
+    ld   [KBD_NOW + 6], ac
+    and  0x20, ac
+    bne  eew_d
+    ld   [MOUSE_DY], ac
+    sub  [ed_ky], ac
+    ld   ac, [MOUSE_DY]
+eew_d:
+    ld   [KBD_NOW + 7], ac
+    and  0x40, ac
+    bne  eew_x
+    ld   [MOUSE_DY], ac
+    add  [ed_ky], ac
+    ld   ac, [MOUSE_DY]
+eew_x:
+    GOTO e_btn
+
+; the buttons: the mouse's, Space (left) and Enter (right)
+.chunk
+e_btn:
+    ld   [ed_mok], ac
+    bne  eeb_0
+    ld   [MOUSE_B], ac
+    and  3, ac
+    bra  eeb_1
+eeb_0:
+    clr  ac
+eeb_1:
+    ld   ac, [ed_btn]
+    ld   [KBD_NOW + 7], ac
+    and  0x04, ac
+    bne  eeb_2
+    ld   [ed_btn], ac
+    or   1, ac
+    ld   ac, [ed_btn]
+eeb_2:
+    ld   [KBD_NOW + 5], ac
+    and  0x01, ac
+    bne  eeb_3
+    ld   [ed_btn], ac
+    or   2, ac
+    ld   ac, [ed_btn]
+eeb_3:
+    ld   [MOUSE_DX], ac
+    or   [MOUSE_DY], ac
+    bne  eeb_move
+    ld   [ed_btn], ac
+    xor  [ed_ob], ac
+    bne  eeb_move
+    GOTO e_keys
+eeb_move:
+    GOTO e_move
+
+.chunk
+e_move:
+    CALL ep_hide
+    ld   [MOUSE_DX], ac
+    or   [MOUSE_DY], ac
+    beq  eem_1
+    ld   [ed_pxl], ac
+    ld   ac, [R0]
+    ld   [ed_pxh], ac
+    ld   ac, [R1]
+    ld   [ed_pyl], ac
+    ld   ac, [R2]
+    ld   [ed_pyh], ac
+    ld   ac, [R3]
+    CALL mouse_move
+    ld   [R0], ac
+    ld   ac, [ed_pxl]
+    ld   [R1], ac
+    ld   ac, [ed_pxh]
+    ld   [R2], ac
+    ld   ac, [ed_pyl]
+    ld   [R3], ac
+    ld   ac, [ed_pyh]
+eem_1:
+    CALL e_locate
+    CALL e_act
+    ld   [ed_btn], ac
+    ld   ac, [ed_ob]
+    ld   [ed_do], ac
+    beq  eem_2
+    GOTO e_do
+eem_2:
+    GOTO e_done
+
+; e_done - the pointer back on the screen, then the keys
+.chunk
+e_done:
+    CALL e_locate
+    ld   [ed_tb], ac
+    beq  eed_1
+    CALL est_xy
+eed_1:
+    CALL ep_show
+    GOTO e_keys
+
+.chunk
+e_keys:
+    CALL kbd_getc
+    bne  eek_1
+    GOTO e_loop
+eek_1:
+    ld   ac, [ed_key]
+    ld   [ed_drag], ac          ; not while something is being drawn
+    bne  e_keys
+    ld   ac, [ed_t]
+eek_l:
+    ld   [ed_t], ac
+    add  ekeytab & 0xFF, x
+    ld   ekeytab >> 8, y
+    ld   [y,x], ac
+    beq  e_keys                 ; not one of the editor's keys
+    xor  [ed_key], ac
+    beq  eek_hit
+    ld   [ed_t], ac
+    add  2, ac
+    ld   ac, [ed_t]
+    bra  eek_l
+eek_hit:
+    ld   [ed_t], ac
+    add  (ekeytab & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [ed_do]
+    CALL ep_hide
+    GOTO e_do
+
+; e_locate - where the pointer is: its pixel, row, cell and zone (a leaf)
+.chunk
+e_locate:
+    ld   [ed_pyl], ac
+    shr  ac
+    ld   ac, [ed_y]
+    ld   [ed_pyh], ac
+    beq  elc_1
+    ld   [ed_y], ac
+    or   0x80, ac
+    ld   ac, [ed_y]
+elc_1:
+    ld   [ed_pxl], ac
+    shr  ac
+    shr  ac
+    ld   ac, [T0]               ; X / 4
+    shr  ac
+    ld   ac, [ed_cc]            ; X / 8
+    ld   [ed_pxh], ac
+    beq  elc_3
+    xor  1, ac
+    bne  elc_2
+    ld   [T0], ac
+    or   0x40, ac
+    ld   ac, [T0]
+    ld   [ed_cc], ac
+    or   0x20, ac
+    ld   ac, [ed_cc]
+    bra  elc_3
+elc_2:
+    ld   [T0], ac
+    or   0x80, ac
+    ld   ac, [T0]
+    ld   [ed_cc], ac
+    or   0x40, ac
+    ld   ac, [ed_cc]
+elc_3:
+    ld   [ed_wide], ac
+    bne  elc_w
+    ld   [ed_cc], ac
+    bra  elc_x
+elc_w:
+    ld   [T0], ac
+elc_x:
+    ld   ac, [ed_x]
+    clr  ac
+    ld   ac, [ed_zone]
+    ld   [ed_tb], ac
+    beq  elc_r
+    ld   [ed_y], ac
+    sub  [ed_tby], ac
+    ld   ac, [ed_zr]
+    sub  32, ac
+    bcc  elc_r                   ; not in the bar's rows
+    ld   3, ac
+    ld   ac, [ed_zone]
+    ld   [ed_zr], ac
+    sub  16, ac
+    bcc  elc_r
+    ld   2, ac
+    ld   ac, [ed_zone]
+    ld   [ed_zr], ac
+    sub  8, ac
+    bcc  elc_r
+    ld   1, ac
+    ld   ac, [ed_zone]
+elc_r:
+    RET
+
+; ============================================================
+; e_act - what the buttons do this frame
+; ============================================================
+.chunk
+e_act:
+    PUSH_LINK
+    ld   [ed_btn], ac
+    and  1, ac
+    bne  eea_down
+    ld   ac, [ed_drag]          ; the left button is up
+    bra  eea_right
+eea_down:
+    ld   [ed_ob], ac
+    and  1, ac
+    bne  eea_held
+    GOTO ea_press
+eea_held:
+    ld   [ed_drag], ac
+    beq  eea_right
+    GOTO ea_drag
+eea_right:
+    ld   [ed_btn], ac
+    and  2, ac
+    beq  eea_x
+    ld   [ed_ob], ac
+    and  2, ac
+    bne  eea_x
+    GOTO ea_right
+eea_x:
+    LEAVE
+
+; the right button: on the picture the bar goes away or comes back, on a
+; color that is the paper
+.chunk
+ea_right:
+    ld   [ed_zone], ac
+    bne  ear_tb
+    ld   12, ac
+    ld   ac, [ed_do]
+    LEAVE
+ear_tb:
+    xor  3, ac
+    bne  ear_x
+    ld   [ed_cc], ac
+    sub  64, ac
+    bcc  ear_x
+    CALL e_swatch
+    ld   ac, [ed_paper]
+    CALL etb_ink
+ear_x:
+    LEAVE
+
+; e_swatch - AC = the color of the palette cell under the pointer (a leaf)
+.chunk
+e_swatch:
+    ld   [ed_zr], ac
+    and  0x0C, ac
+    shl
+    shl
+    shl
+    shl
+    or   [ed_cc], ac
+    RET
+
+; the left button went down
+.chunk
+ea_press:
+    ld   [ed_zone], ac
+    beq  eap_pic
+    GOTO etb_click
+eap_pic:
+    ld   [ed_tool], ac
+    xor  6, ac
+    bne  eap_0
+    GOTO ea_pick
+eap_0:
+    ld   [ed_msg], ac
+    beq  eap_1
+    clr  ac
+    CALL est_msg
+eap_1:
+    CALL e_jreset
+    ld   [ed_x], ac
+    ld   ac, [ed_lx]
+    ld   ac, [ed_ax]
+    ld   ac, [ed_cx]
+    ld   ac, [ed_qx]
+    ld   [ed_y], ac
+    ld   ac, [ed_ly]
+    ld   ac, [ed_ay]
+    ld   ac, [ed_cy]
+    ld   ac, [ed_qy]
+    ld   [ed_ink], ac
+    ld   ac, [ed_col]
+    clr  ac
+    ld   ac, [ed_stmp]
+    ld   [ed_tool], ac
+    xor  5, ac
+    beq  eap_fill
+    GOTO ea_start
+eap_fill:
+    GOTO ea_fill
+
+; pencil, brush, eraser, line, rectangle: the first point
+.chunk
+ea_start:
+    ld   [ed_tool], ac          ; the eraser draws in the paper color
+    xor  2, ac
+    bne  eas_1
+    ld   [ed_paper], ac
+    ld   ac, [ed_col]
+eas_1:
+    ld   [ed_tool], ac          ; the brush and the eraser: every point a stamp
+    beq  eas_2
+    sub  3, ac
+    bcc  eas_2
+    ld   1, ac
+    ld   ac, [ed_stmp]
+eas_2:
+    MAPFF
+    CALL e_dot
+    MAP07
+    ld   1, ac
+    ld   ac, [ed_drag]
+    CALL e_dirty
+    LEAVE
+
+; fill: over the whole picture, so without the bar
+.chunk
+ea_fill:
+    ld   [ed_tb], ac
+    ld   ac, [ed_was]
+    beq  eaf_1
+    CALL etb_hide
+eaf_1:
+    MAPFF
+    CALL e_fill
+    MAP07
+    ld   [ed_was], ac
+    beq  eaf_2
+    CALL etb_show
+eaf_2:
+    CALL e_dirty
+    LEAVE
+
+; pick: the ink is the color under the pointer, while the button is down
+.chunk
+ea_pick:
+    ld   [ed_y], ac
+    ld   ac, [ed_ty]
+    ld   2, ac
+    ld   ac, [ed_drag]
+ea_pick2:
+    ld   [ed_x], ac
+    ld   ac, [ed_lx]
+    ld   ac, [ed_qx]
+    ld   [ed_ty], ac
+    ld   ac, [ed_ly]
+    ld   ac, [ed_qy]
+    MAPFF
+    CALL e_getpix
+    ld   ac, [ed_ink]
+    MAP07
+    ld   [ed_tb], ac
+    beq  eak_x
+    CALL etb_ink
+eak_x:
+    LEAVE
+
+; the left button is held and a tool draws: the pointer's row kept out of
+; the bar; nothing to do when the pointer has not moved a pixel
+.chunk
+ea_drag:
+    ld   [ed_y], ac
+    ld   ac, [ed_ty]
+    sub  [ed_cy0], ac
+    bcc  ead_1
+    ld   [ed_cy0], ac
+    ld   ac, [ed_ty]
+ead_1:
+    ld   [ed_cy1], ac
+    sub  [ed_ty], ac
+    bcc  ead_2
+    ld   [ed_cy1], ac
+    ld   ac, [ed_ty]
+ead_2:
+    ld   [ed_x], ac
+    xor  [ed_lx], ac
+    bne  ead_go
+    ld   [ed_ty], ac
+    xor  [ed_ly], ac
+    bne  ead_go
+    LEAVE
+ead_go:
+    ld   [ed_drag], ac
+    xor  2, ac
+    bne  ead_3
+    GOTO ea_pick2
+ead_3:
+    GOTO ea_drag2
+
+.chunk
+ea_drag2:
+    ld   [ed_tool], ac
+    sub  3, ac
+    bcc  ead_shape
+    ld   [ed_lx], ac            ; pencil, brush, eraser: on from the last point
+    ld   ac, [ed_x0]
+    ld   [ed_ly], ac
+    ld   ac, [ed_y0]
+    ld   [ed_x], ac
+    ld   ac, [ed_x1]
+    ld   ac, [ed_lx]
+    ld   [ed_ty], ac
+    ld   ac, [ed_y1]
+    ld   ac, [ed_ly]
+    MAPFF
+    CALL e_line
+    MAP07
+    LEAVE
+ead_shape:
+    CALL e_jundo                ; line, rectangle: the one drawn last away,
+    ld   [ed_x], ac             ; and one to where the pointer is now
+    ld   ac, [ed_lx]
+    ld   [ed_ty], ac
+    ld   ac, [ed_ly]
+    MAPFF
+    CALL e_shape
+    MAP07
+    LEAVE
+
+; a click in the bar: a tool or command, the brush size, a color
+.chunk
+etb_click:
+    ld   [ed_zone], ac
+    xor  1, ac
+    bne  etk_2
+    ld   [ed_cc], ac
+    add  80, x
+    ld   etb_txt >> 8, y
+    ld   [y,x], ac
+    ld   ac, [ed_do]
+    LEAVE
+etk_2:
+    xor  1 ^ 2, ac
+    bne  etk_3
+    ld   [ed_cc], ac
+    sub  19, ac
+    bcs  etk_x
+    sub  3, ac
+    bcs  etk_minus               ; "<": columns 19-21
+    sub  1, ac
+    bcs  etk_x
+    sub  3, ac
+    bcc  etk_x
+    ld   16, ac                 ; ">": columns 23-25
+    bra  etk_do
+etk_minus:
+    ld   15, ac
+etk_do:
+    ld   ac, [ed_do]
+    LEAVE
+etk_3:
+    ld   [ed_cc], ac
+    sub  64, ac
+    bcc  etk_x
+    CALL e_swatch
+    ld   ac, [ed_ink]
+    CALL etb_ink
+etk_x:
+    LEAVE
+
+; e_dirty - the picture is changed: the mark by its name
+.chunk
+e_dirty:
+    PUSH_LINK
+    ld   [ed_dirty], ac
+    bne  edy_x
+    ld   1, ac
+    ld   ac, [ed_dirty]
+    ld   [ed_tb], ac
+    beq  edy_x
+    CALL est_name
+edy_x:
+    LEAVE
+
+; ============================================================
+; e_do - command ed_do (the pointer is off the screen)
+; ============================================================
+.chunk
+e_do:
+    ld   [ed_do], ac
+    sub  8, ac
+    bcc  eeo_cmd
+    GOTO cmd_tool
+eeo_cmd:
+    beq  eeo_undo
+    xor  1, ac
+    beq  eeo_save
+    xor  1 ^ 2, ac
+    beq  eeo_as
+    xor  2 ^ 3, ac
+    beq  eeo_new
+    xor  3 ^ 4, ac
+    beq  eeo_hide
+    xor  4 ^ 5, ac
+    beq  eeo_exit
+    xor  5 ^ 6, ac
+    beq  eeo_move
+    GOTO cmd_size
+eeo_undo:
+    GOTO cmd_undo
+eeo_save:
+    GOTO cmd_save
+eeo_as:
+    GOTO cmd_as
+eeo_new:
+    GOTO cmd_new
+eeo_hide:
+    GOTO cmd_hide
+eeo_exit:
+    GOTO cmd_exit
+eeo_move:
+    GOTO cmd_move
+
+.chunk
+cmd_tool:
+    ld   [ed_do], ac
+    dec
+    ld   ac, [ed_tool]
+    ld   [ed_tb], ac
+    beq  edt_x
+    CALL etb_tools
+edt_x:
+    GOTO e_done
+
+.chunk
+cmd_size:
+    ld   [ed_do], ac
+    xor  15, ac
+    bne  edz_up
+    ld   [ed_size], ac
+    dec
+    bne  edz_set
+    bra  edz_x
+edz_up:
+    ld   [ed_size], ac
+    inc
+    xor  5, ac
+    beq  edz_x
+    xor  5, ac
+edz_set:
+    ld   ac, [ed_size]
+    CALL e_dims
+    ld   [ed_tb], ac
+    beq  edz_x
+    CALL est_size
+edz_x:
+    GOTO e_done
+
+.chunk
+cmd_hide:
+    ld   [ed_tb], ac
+    beq  edh_show
+    CALL etb_hide
+    GOTO e_done
+edh_show:
+    CALL etb_show
+    GOTO e_done
+
+.chunk
+cmd_move:
+    ld   [ed_tb], ac
+    beq  edv_1
+    CALL etb_hide
+edv_1:
+    ld   [ed_tby], ac
+    beq  edv_dn
+    clr  ac
+    ld   ac, [ed_tby]
+    ld   32, ac
+    ld   ac, [ed_tlo]
+    ld   ac, [ed_mlo]
+    ld   0x5A, ac
+    ld   ac, [ed_mpg]
+    bra  edv_2
+edv_dn:
+    ld   208, ac
+    ld   ac, [ed_tby]
+    ld   193, ac
+    ld   ac, [ed_tlo]
+    ld   0x5B, ac
+    ld   ac, [ed_mpg]
+    ld   0xC0, ac
+    ld   ac, [ed_mlo]
+edv_2:
+    CALL etb_show
+    GOTO e_done
+
+.chunk
+cmd_undo:
+    ld   [ed_jov], ac
+    beq  edu_1
+    ld   4, ac
+    bra  edu_msg
+edu_1:
+    ld   [ed_jl], ac
+    or   [ed_jh], ac
+    bne  edu_2
+    ld   5, ac
+edu_msg:
+    CALL est_msg
+    GOTO e_done
+edu_2:
+    clr  ac
+    ld   ac, [ed_was]
+    ld   [ed_tb], ac
+    beq  edu_3
+    ld   [ed_tbm], ac
+    beq  edu_3
+    ld   ac, [ed_was]
+    CALL etb_hide
+edu_3:
+    CALL e_jundo
+    ld   [ed_was], ac
+    beq  edu_4
+    CALL etb_show
+edu_4:
+    ld   8, ac
+    bra  edu_msg
+
+.chunk
+cmd_save:
+    ld   [ed_named], ac
+    beq  cmd_as
+    GOTO edo_save
+cmd_as:
+    CALL e_needtb
+    ld   2, ac
+    ld   ac, [ed_ask]
+    clr  ac
+    ld   ac, [ed_nl]
+    CALL enm_draw
+    GOTO e_done
+
+.chunk
+cmd_new:
+    ld   2, ac
+    ld   ac, [ed_pend]
+    ld   [ed_dirty], ac
+    bne  cmd_ask
+    GOTO edo_new
+cmd_exit:
+    ld   1, ac
+    ld   ac, [ed_pend]
+    ld   [ed_dirty], ac
+    bne  cmd_ask
+    GOTO edo_exit
+cmd_ask:
+    CALL e_needtb
+    ld   1, ac
+    ld   ac, [ed_ask]
+    ld   6, ac
+    CALL est_msg
+    GOTO e_done
+
+; e_needtb - the bar on the screen: a message is coming
+.chunk
+e_needtb:
+    PUSH_LINK
+    ld   [ed_tb], ac
+    bne  ent_x
+    CALL etb_show
+ent_x:
+    LEAVE
+
+; ============================================================
+; a question is on the status row: the keys answer it
+; ============================================================
+.chunk
+e_asking:
+    CALL kbd_getc
+    bne  eeq_1
+    GOTO e_loop
+eeq_1:
+    ld   ac, [ed_key]
+    CALL ep_hide
+    ld   [ed_ask], ac
+    xor  2, ac
+    bne  eeq_yn
+    GOTO enm_key
+eeq_yn:
+    clr  ac
+    ld   ac, [ed_ask]
+    CALL est_msg
+    ld   3, ac                  ; a key still down is not a new press
+    ld   ac, [ed_ob]
+    ld   [ed_key], ac
+    or   0x20, ac
+    xor  0x79, ac               ; Y; any other key: no
+    beq  eeq_yes
+    GOTO e_done
+eeq_yes:
+    ld   [ed_pend], ac
+    xor  1, ac
+    beq  eeq_exit
+    GOTO edo_new
+eeq_exit:
+    GOTO edo_exit
+
+; the name: Esc gives up, Enter takes it, Backspace, letters and digits
+.chunk
+enm_key:
+    ld   [ed_key], ac
+    xor  0x1B, ac
+    bne  enk_1
+    ld   ac, [ed_ask]
+    CALL est_msg
+    ld   3, ac
+    ld   ac, [ed_ob]
+    GOTO e_done
+enk_1:
+    xor  0x1B ^ 0x0A, ac
+    bne  enk_2
+    ld   [ed_nl], ac
+    beq  enk_x
+    GOTO enm_done
+enk_2:
+    xor  0x0A ^ 0x08, ac
+    bne  enk_3
+    ld   [ed_nl], ac
+    beq  enk_x
+    dec
+    ld   ac, [ed_nl]
+    CALL enm_draw
+enk_x:
+    GOTO e_done
+enk_3:
+    GOTO enm_char
+
+.chunk
+enm_char:
+    ld   [ed_key], ac           ; a-z: the capital
+    sub  0x61, ac
+    bcs  enc_1
+    sub  26, ac
+    bcc  enc_1
+    ld   [ed_key], ac
+    xor  0x20, ac
+    ld   ac, [ed_key]
+enc_1:
+    ld   [ed_key], ac           ; 0-9
+    sub  0x30, ac
+    bcs  enc_no
+    sub  10, ac
+    bcs  enc_ok
+    ld   [ed_key], ac           ; A-Z
+    sub  0x41, ac
+    bcs  enc_no
+    sub  26, ac
+    bcs  enc_ok
+    ld   [ed_key], ac           ; _
+    xor  0x5F, ac
+    bne  enc_no
+enc_ok:
+    ld   [ed_nl], ac
+    xor  8, ac
+    beq  enc_no
+    ld   [ed_nl], ac
+    add  NB & 0xFF, x
+    ld   NB >> 8, y
+    ld   [ed_key], ac
+    ld   ac, [y,x]
+    ld   [ed_nl], ac
+    inc
+    ld   ac, [ed_nl]
+    CALL enm_draw
+enc_no:
+    GOTO e_done
+
+; nm_draw - "Save as: " and the name so far
+.chunk
+enm_draw:
+    PUSH_LINK
+    ld   7, ac
+    CALL e_mhead
+    clr  ac
+    ld   ac, [ed_k]
+end_l:
+    ld   [ed_k], ac
+    xor  [ed_nl], ac
+    beq  end_x
+    ld   [ed_k], ac
+    add  NB & 0xFF, x
+    ld   NB >> 8, y
+    ld   [y,x], ac
+    CALL etputc
+    ld   [ed_k], ac
+    inc
+    ld   ac, [ed_k]
+    bra  end_l
+end_x:
+    ld   0x5F, ac
+    CALL etputc
+    CALL e_mpad
+    LEAVE
+
+; the name typed: ph_name = it, ".PIC", 00; then the file
+.chunk
+enm_done:
+    clr  ac
+    ld   ac, [ed_k]
+enn_l:
+    ld   [ed_k], ac
+    add  NB & 0xFF, x
+    ld   NB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [ed_t]
+    ld   [ed_k], ac
+    add  ph_name, x
+    ld   [ed_t], ac
+    ld   ac, [x]
+    ld   [ed_k], ac
+    inc
+    ld   ac, [ed_k]
+    xor  [ed_nl], ac
+    bne  enn_l
+    ld   [ed_nl], ac
+    add  ph_name, ac
+    ld   ac, x
+    ld   0x2E, [x]
+    add  1, x
+    ld   0x50, [x]
+    add  2, x
+    ld   0x49, [x]
+    add  3, x
+    ld   0x43, [x]
+    add  4, x
+    ld   0x00, [x]
+    ld   1, ac
+    ld   ac, [ed_named]
+    clr  ac
+    ld   ac, [ed_ask]
+    ld   3, ac
+    ld   ac, [ed_ob]
+    GOTO edo_save
+
+; ============================================================
+; do_save - the picture to the file ph_name in the pictures' folder: 80
+; sectors, each copied to SBUF (the map at FF), the bar's rows put right
+; ============================================================
+.chunk
+edo_save:
+    ld   1, ac
+    CALL est_msg
+    CALL opendir
+    bne  esv_err
+    ld   ph_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    CALL fs_create
+    bne  esv_err
+    clr  ac
+    ld   ac, [ed_bl]
+    ld   TBS >> 8, ac
+    ld   ac, [ed_bh]
+    ld   0x60, ac
+    ld   ac, [ed_pe]
+    GOTO esv_loop
+esv_err:
+    GOTO esv_fail
+
+.chunk
+esv_loop:
+    MAPFF
+    CALL e_cpsec
+    ld   [ed_tb], ac
+    beq  esl_1
+    ld   SBUF >> 8, ac
+    ld   ac, [R6]
+    inc
+    ld   ac, [R7]
+    CALL etb_pair
+esl_1:
+    MAP07
+    clr  ac
+    ld   ac, [R4]
+    ld   SBUF >> 8, ac
+    ld   ac, [R5]
+    CALL fs_write
+    bne  esv_fail
+    ld   [ed_pe], ac
+    add  2, ac
+    ld   ac, [ed_pe]
+    bne  esv_loop
+    ld   ac, [R0]
+    ld   ac, [R2]
+    ld   ac, [R3]
+    ld   0xA0, ac               ; 40,960 bytes
+    ld   ac, [R1]
+    CALL fs_close
+    bne  esv_fail
+    ld   ac, [ed_dirty]
+    ld   2, ac
+    CALL est_msg
+    CALL est_name
+    GOTO e_done
+esv_fail:
+    ld   3, ac
+    CALL est_msg
+    GOTO e_done
+
+; e_cpsec - pages ed_pe and ed_pe + 1 to SBUF (a leaf, the map at FF)
+.chunk
+e_cpsec:
+    ld   [ed_pe], ac
+    ld   ac, [T0]
+    ld   SBUF >> 8, ac
+    ld   ac, [T1]
+    clr  ac
+    ld   ac, [T2]
+ecs_l:
+    ld   [T0], y
+    ld   [T2], x
+    ld   [y,x], ac
+    ld   [T1], y
+    ld   ac, [y,x]
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    bne  ecs_l
+    ld   [T1], ac
+    xor  (SBUF >> 8) + 1, ac
+    beq  ecs_x
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+    bra  ecs_l
+ecs_x:
+    RET
+
+; do_new - the whole picture the paper color, no name
+.chunk
+edo_new:
+    ld   [ed_tb], ac
+    ld   ac, [ed_was]
+    beq  edn_1
+    CALL etb_hide
+edn_1:
+    ld   0x60, ac
+    ld   ac, [T0]
+    clr  ac
+    ld   ac, [T1]
+edn_l:
+    ld   [T0], y
+    ld   [T1], x
+    ld   [ed_paper], ac
+    ld   ac, [y,x]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+    bne  edn_l
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    bne  edn_l
+    ld   ac, [ed_named]
+    ld   ac, [ed_dirty]
+    ld   ac, [ed_msg]
+    CALL e_jreset
+    ld   [ed_was], ac
+    beq  edn_2
+    CALL etb_show
+edn_2:
+    GOTO e_done
+
+; do_exit - back to the viewer: the bar away, the keys up (the viewer's
+; Esc leaves the program), the folder counted again, the picture from the
+; card
+.chunk
+edo_exit:
+    ld   [ed_tb], ac
+    beq  edx_1
+    CALL etb_hide
+edx_1:
+    ld   1, ac
+    CALL wait_frames
+    CALL kbd_scan
+    ld   [KBD_NOW], ac
+    and  1, ac
+    beq  edx_1
+edx_2:
+    CALL kbd_getc
+    bne  edx_2
+    CALL tally
+    GOTO show
+
+; ============================================================
+; drawing (the map at FF)
+; ============================================================
+; e_pset - pixel ed_qx, ed_qy = ed_col, its old color noted in the journal
+; (a leaf); nothing outside the picture or in the bar's rows
+.chunk
+e_pset:
+    ld   [ed_xmax], ac
+    sub  [ed_qx], ac
+    bcs  eps_out
+    ld   [ed_qy], ac
+    sub  [ed_cy0], ac
+    bcs  eps_out
+    ld   [ed_cy1], ac
+    sub  [ed_qy], ac
+    bcs  eps_out
+    ld   [ed_qy], ac
+    LOWIDX
+    ld   ac, [T1]               ; T1 = the low byte
+    ld   [ed_wide], ac
+    bne  eps_w
+    ld   [ed_qx], ac
+    shl
+    bra  eps_pg
+eps_w:
+    ld   [ed_qx], ac
+eps_pg:
+    add  [ed_pb], ac
+    ld   ac, [T0]               ; T0 = the page
+    ld   ac, y
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T2]               ; T2 = the old color
+    xor  [ed_col], ac
+    beq  eps_out
+    ld   [T0], ac               ; T3 = the even page's (80 across)
+    sub  1, y
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [ed_jov], ac
+    bne  eps_put
+    ld   [ed_jh], ac
+    xor  JPAGES, ac
+    bne  eps_j
+    ld   1, ac
+    ld   ac, [ed_jov]
+    bra  eps_put
+eps_j:
+    ld   [ed_jl], x
+    ld   [ed_jh], ac
+    add  JA >> 8, y
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [ed_jh], ac
+    add  JB >> 8, y
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   [ed_jh], ac
+    add  JC >> 8, y
+    ld   [T2], ac
+    ld   ac, [y,x]
+    ld   [ed_jh], ac
+    add  JD >> 8, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [ed_jl], ac
+    inc
+    ld   ac, [ed_jl]
+    bne  eps_put
+    ld   [ed_jh], ac
+    inc
+    ld   ac, [ed_jh]
+eps_put:
+    ld   [T0], y
+    ld   [T1], x
+    ld   [ed_col], ac
+    ld   ac, [y,x]
+    ld   [ed_wide], ac
+    bne  eps_out
+    ld   [T0], ac
+    sub  1, y
+    ld   [ed_col], ac
+    ld   ac, [y,x]
+eps_out:
+    RET
+
+; e_getpix - AC = pixel ed_qx, ed_qy; T0 = its page, T1 = its low byte (a
+; leaf)
+.chunk
+e_getpix:
+    ld   [ed_qy], ac
+    LOWIDX
+    ld   ac, [T1]
+    ld   [ed_wide], ac
+    bne  egp_w
+    ld   [ed_qx], ac
+    shl
+    bra  egp_pg
+egp_w:
+    ld   [ed_qx], ac
+egp_pg:
+    add  [ed_pb], ac
+    ld   ac, [T0]
+    ld   ac, y
+    ld   [T1], x
+    ld   [y,x], ac
+    RET
+
+; e_dot - the point ed_cx, ed_cy: a pixel, or the brush around it
+.chunk
+e_dot:
+    PUSH_LINK
+    ld   [ed_stmp], ac
+    bne  edt_st
+    ld   [ed_cx], ac
+    ld   ac, [ed_qx]
+    ld   [ed_cy], ac
+    ld   ac, [ed_qy]
+    CALL e_pset
+    LEAVE
+edt_st:
+    ld   [ed_sw], ac
+    shr  ac
+    ld   ac, [T3]
+    ld   [ed_cx], ac
+    sub  [T3], ac
+    dec
+    ld   ac, [ed_sox]
+    ld   [ed_sh], ac
+    shr  ac
+    ld   ac, [T3]
+    ld   [ed_cy], ac
+    sub  [T3], ac
+    dec
+    ld   ac, [ed_soy]
+    ld   [ed_sh], ac
+    ld   ac, [ed_sj]
+edt_row:
+    ld   [ed_sw], ac
+    ld   ac, [ed_si]
+edt_col:
+    ld   [ed_sox], ac
+    add  [ed_si], ac
+    ld   ac, [ed_qx]
+    ld   [ed_soy], ac
+    add  [ed_sj], ac
+    ld   ac, [ed_qy]
+    CALL e_pset
+    ld   [ed_si], ac
+    dec
+    ld   ac, [ed_si]
+    bne  edt_col
+    ld   [ed_sj], ac
+    dec
+    ld   ac, [ed_sj]
+    bne  edt_row
+    LEAVE
+
+; e_line - points from ed_x0, ed_y0 to ed_x1, ed_y1
+.chunk
+e_line:
+    PUSH_LINK
+    ld   1, ac
+    ld   ac, [ed_sx]
+    ld   [ed_x1], ac
+    sub  [ed_x0], ac
+    bcc  eln_dxp
+    ld   0xFF, ac
+    ld   ac, [ed_sx]
+    ld   [ed_x0], ac
+    sub  [ed_x1], ac
+eln_dxp:
+    ld   ac, [ed_dx]
+    ld   1, ac
+    ld   ac, [ed_sy]
+    ld   [ed_y1], ac
+    sub  [ed_y0], ac
+    bcc  eln_dyp
+    ld   0xFF, ac
+    ld   ac, [ed_sy]
+    ld   [ed_y0], ac
+    sub  [ed_y1], ac
+eln_dyp:
+    ld   ac, [ed_dy]
+    ld   [ed_x0], ac
+    ld   ac, [ed_cx]
+    ld   [ed_y0], ac
+    ld   ac, [ed_cy]
+    ld   [ed_dx], ac
+    sub  [ed_dy], ac
+    bcs  eln_steep
+    GOTO eline_x
+eln_steep:
+    GOTO eline_y
+
+.chunk
+eline_x:
+    ld   [ed_dx], ac
+    ld   ac, [ed_n]
+    shr  ac
+    ld   ac, [ed_err]
+elx_loop:
+    CALL e_dot
+    ld   [ed_n], ac
+    beq  elx_end
+    dec
+    ld   ac, [ed_n]
+    ld   [ed_cx], ac
+    add  [ed_sx], ac
+    ld   ac, [ed_cx]
+    ld   [ed_err], ac
+    sub  [ed_dy], ac
+    bcc  elx_keep
+    add  [ed_dx], ac
+    ld   ac, [ed_err]
+    ld   [ed_cy], ac
+    add  [ed_sy], ac
+    ld   ac, [ed_cy]
+    bra  elx_loop
+elx_keep:
+    ld   ac, [ed_err]
+    bra  elx_loop
+elx_end:
+    LEAVE
+
+.chunk
+eline_y:
+    ld   [ed_dy], ac
+    ld   ac, [ed_n]
+    shr  ac
+    ld   ac, [ed_err]
+ely_loop:
+    CALL e_dot
+    ld   [ed_n], ac
+    beq  ely_end
+    dec
+    ld   ac, [ed_n]
+    ld   [ed_cy], ac
+    add  [ed_sy], ac
+    ld   ac, [ed_cy]
+    ld   [ed_err], ac
+    sub  [ed_dx], ac
+    bcc  ely_keep
+    add  [ed_dy], ac
+    ld   ac, [ed_err]
+    ld   [ed_cx], ac
+    add  [ed_sx], ac
+    ld   ac, [ed_cx]
+    bra  ely_loop
+ely_keep:
+    ld   ac, [ed_err]
+    bra  ely_loop
+ely_end:
+    LEAVE
+
+; e_shape - the line or the rectangle from ed_ax, ed_ay to ed_lx, ed_ly
+.chunk
+e_shape:
+    PUSH_LINK
+    ld   [ed_tool], ac
+    xor  3, ac
+    bne  esp_rect
+    ld   [ed_ax], ac
+    ld   ac, [ed_x0]
+    ld   [ed_ay], ac
+    ld   ac, [ed_y0]
+    ld   [ed_lx], ac
+    ld   ac, [ed_x1]
+    ld   [ed_ly], ac
+    ld   ac, [ed_y1]
+    CALL e_line
+    LEAVE
+esp_rect:
+    ld   [ed_ax], ac            ; the top
+    ld   ac, [ed_x0]
+    ld   [ed_ay], ac
+    ld   ac, [ed_y0]
+    ld   ac, [ed_y1]
+    ld   [ed_lx], ac
+    ld   ac, [ed_x1]
+    CALL e_line
+    ld   [ed_ax], ac            ; the bottom
+    ld   ac, [ed_x0]
+    ld   [ed_ly], ac
+    ld   ac, [ed_y0]
+    ld   ac, [ed_y1]
+    ld   [ed_lx], ac
+    ld   ac, [ed_x1]
+    CALL e_line
+    GOTO e_rect2
+
+.chunk
+e_rect2:
+    ld   [ed_ax], ac            ; the left
+    ld   ac, [ed_x0]
+    ld   ac, [ed_x1]
+    ld   [ed_ay], ac
+    ld   ac, [ed_y0]
+    ld   [ed_ly], ac
+    ld   ac, [ed_y1]
+    CALL e_line
+    ld   [ed_lx], ac            ; the right
+    ld   ac, [ed_x0]
+    ld   ac, [ed_x1]
+    ld   [ed_ay], ac
+    ld   ac, [ed_y0]
+    ld   [ed_ly], ac
+    ld   ac, [ed_y1]
+    CALL e_line
+    LEAVE
+
+; e_jundo - everything the journal notes put back, the last first (a
+; leaf; it only writes the video RAM)
+.chunk
+e_jundo:
+eju_loop:
+    ld   [ed_jl], ac
+    bne  eju_dec
+    ld   [ed_jh], ac
+    beq  eju_end
+    dec
+    ld   ac, [ed_jh]
+    clr  ac
+eju_dec:
+    dec
+    ld   ac, [ed_jl]
+    ld   ac, x
+    ld   [ed_jh], ac
+    add  JA >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [ed_jh], ac
+    add  JB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [ed_jh], ac
+    add  JC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [ed_jh], ac
+    add  JD >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [ed_jk], ac
+    bne  eju_span
+    ld   [T0], y
+    ld   [T1], x
+    ld   [T2], ac
+    ld   ac, [y,x]
+    ld   [ed_wide], ac
+    bne  eju_loop
+    ld   [T0], ac
+    sub  1, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    bra  eju_loop
+eju_span:                        ; a run: pages T0 to T2 = the old color
+    ld   [T1], x
+eju_s1:
+    ld   [T0], y
+    ld   [ed_jold], ac
+    ld   ac, [y,x]
+    ld   [ed_wide], ac
+    bne  eju_s2
+    ld   [T0], ac
+    sub  1, y
+    ld   [ed_jold], ac
+    ld   ac, [y,x]
+eju_s2:
+    ld   [T0], ac
+    xor  [T2], ac
+    beq  eju_loop
+    ld   [T0], ac
+    add  [ed_fst], ac
+    ld   ac, [T0]
+    bra  eju_s1
+eju_end:
+    RET
+
+; ============================================================
+; e_fill - the pixels of one color joined to ed_qx, ed_qy = ed_col: a
+; stack of pixels still to look at; for each, its whole run in its row is
+; filled and noted, and the first pixel of every run of the old color in
+; the rows above and below goes on the stack.  It works in pages and low
+; bytes (a row above: low - 2, but 254 above 1; none above 32; a row
+; below: low + 2, but 1 below 254; none below 255)
+; ============================================================
+.chunk
+e_fill:
+    PUSH_LINK
+    CALL e_getpix
+    ld   ac, [ed_ftg]
+    xor  [ed_col], ac
+    bne  efl_go
+    LEAVE
+efl_go:
+    ld   1, ac
+    ld   ac, [ed_jk]
+    ld   ac, [ed_spl]
+    clr  ac
+    ld   ac, [ed_sph]
+    ld   [ed_ftg], ac
+    ld   ac, [ed_jold]
+    ld   SA >> 8, y
+    ld   0, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   SB >> 8, y
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO efill_loop
+
+.chunk
+efill_loop:
+    ld   [ed_spl], ac
+    bne  efo_dec
+    ld   [ed_sph], ac
+    bne  efo_hi
+    LEAVE
+efo_hi:
+    dec
+    ld   ac, [ed_sph]
+    clr  ac
+efo_dec:
+    dec
+    ld   ac, [ed_spl]
+    ld   ac, x
+    ld   [ed_sph], ac
+    add  SA >> 8, y
+    ld   [y,x], ac
+    ld   ac, [ed_fpg]
+    ld   [ed_sph], ac
+    add  SB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [ed_flo]
+    ld   ac, x
+    ld   [ed_fpg], y
+    ld   [y,x], ac
+    xor  [ed_ftg], ac
+    bne  efill_loop              ; filled since it went on the stack
+    ld   [ed_fpg], ac
+    ld   ac, [ed_fl]
+efs_l:                           ; left while the pixel before is that color
+    ld   [ed_fl], ac
+    xor  [ed_pb], ac
+    beq  efs_lx
+    ld   [ed_fl], ac
+    sub  [ed_fst], ac
+    ld   ac, y
+    ld   ac, [T4]
+    ld   [y,x], ac
+    xor  [ed_ftg], ac
+    bne  efs_lx
+    ld   [T4], ac
+    ld   ac, [ed_fl]
+    bra  efs_l
+efs_lx:
+    ld   [ed_fpg], ac
+    ld   ac, [ed_fr]
+efs_r:                           ; and right
+    ld   [ed_fr], ac
+    xor  0xFF, ac
+    beq  efs_rx
+    ld   [ed_fr], ac
+    add  [ed_fst], ac
+    ld   ac, y
+    ld   ac, [T4]
+    ld   [y,x], ac
+    xor  [ed_ftg], ac
+    bne  efs_rx
+    ld   [T4], ac
+    ld   ac, [ed_fr]
+    bra  efs_r
+efs_rx:
+    GOTO efill_put
+
+.chunk
+efill_put:
+    ld   [ed_flo], x
+    ld   [ed_fl], ac
+    ld   ac, [T4]
+efu_l:
+    ld   [T4], y
+    ld   [ed_col], ac
+    ld   ac, [y,x]
+    ld   [ed_wide], ac
+    bne  efu_n
+    ld   [T4], ac
+    sub  1, y
+    ld   [ed_col], ac
+    ld   ac, [y,x]
+efu_n:
+    ld   [T4], ac
+    xor  [ed_fr], ac
+    beq  efu_j
+    ld   [T4], ac
+    add  [ed_fst], ac
+    ld   ac, [T4]
+    bra  efu_l
+efu_j:                           ; the run into the journal
+    ld   [ed_jov], ac
+    bne  efu_x
+    ld   [ed_jh], ac
+    xor  JPAGES, ac
+    bne  efu_s
+    ld   1, ac
+    ld   ac, [ed_jov]
+    bra  efu_x
+efu_s:
+    ld   [ed_jl], x
+    ld   [ed_jh], ac
+    add  JA >> 8, y
+    ld   [ed_fl], ac
+    ld   ac, [y,x]
+    ld   [ed_jh], ac
+    add  JB >> 8, y
+    ld   [ed_flo], ac
+    ld   ac, [y,x]
+    ld   [ed_jh], ac
+    add  JC >> 8, y
+    ld   [ed_fr], ac
+    ld   ac, [y,x]
+    ld   [ed_jl], ac
+    inc
+    ld   ac, [ed_jl]
+    bne  efu_x
+    ld   [ed_jh], ac
+    inc
+    ld   ac, [ed_jh]
+efu_x:
+    GOTO efill_nb
+
+.chunk
+efill_nb:
+    ld   [ed_flo], ac           ; the row above
+    xor  32, ac
+    beq  efn_dn
+    ld   [ed_flo], ac
+    xor  1, ac
+    bne  efn_u2
+    ld   254, ac
+    bra  efn_u3
+efn_u2:
+    ld   [ed_flo], ac
+    sub  2, ac
+efn_u3:
+    ld   ac, [ed_nlo]
+    CALL e_fscan
+efn_dn:
+    ld   [ed_flo], ac           ; the row below
+    xor  255, ac
+    beq  efn_x
+    ld   [ed_flo], ac
+    xor  254, ac
+    bne  efn_d2
+    ld   1, ac
+    bra  efn_d3
+efn_d2:
+    ld   [ed_flo], ac
+    add  2, ac
+efn_d3:
+    ld   ac, [ed_nlo]
+    CALL e_fscan
+efn_x:
+    GOTO efill_loop
+
+; e_fscan - row ed_nlo, pages ed_fl to ed_fr: the first pixel of each run
+; of the old color onto the stack (a leaf; a full stack takes no more)
+.chunk
+e_fscan:
+    clr  ac
+    ld   ac, [ed_run]
+    ld   [ed_fl], ac
+    ld   ac, [T4]
+efc_l:
+    ld   [T4], y
+    ld   [ed_nlo], x
+    ld   [y,x], ac
+    xor  [ed_ftg], ac
+    beq  efc_t
+    clr  ac
+    ld   ac, [ed_run]
+    bra  efc_n
+efc_t:
+    ld   [ed_run], ac
+    bne  efc_n
+    ld   1, ac
+    ld   ac, [ed_run]
+    ld   [ed_sph], ac
+    xor  2, ac
+    beq  efc_n
+    ld   [ed_spl], x
+    ld   [ed_sph], ac
+    add  SA >> 8, y
+    ld   [T4], ac
+    ld   ac, [y,x]
+    ld   [ed_sph], ac
+    add  SB >> 8, y
+    ld   [ed_nlo], ac
+    ld   ac, [y,x]
+    ld   [ed_spl], ac
+    inc
+    ld   ac, [ed_spl]
+    bne  efc_n
+    ld   [ed_sph], ac
+    inc
+    ld   ac, [ed_sph]
+efc_n:
+    ld   [T4], ac
+    xor  [ed_fr], ac
+    beq  efc_x
+    ld   [T4], ac
+    add  [ed_fst], ac
+    ld   ac, [T4]
+    bra  efc_l
+efc_x:
+    RET
+
+; ============================================================
+; the bar
+; ============================================================
+; tb_show - the picture under the bar kept, the bar drawn, its rows' modes
+.chunk
+etb_show:
+    PUSH_LINK
+    ld   1, ac
+    ld   ac, [ed_tb]
+    ld   ac, [ed_tbm]
+    MAPFF
+    CALL etb_save
+    MAP07
+    CALL etb_tools
+    CALL etb_stat
+    CALL etb_pal
+    CALL etb_ink
+    ld   0x04, ac
+    ld   ac, [T0]
+    ld   0x07, ac
+    ld   ac, [T1]
+    CALL etb_mode
+    ld   [ed_tby], ac
+    beq  etw_top
+    clr  ac
+    ld   ac, [ed_cy0]
+    ld   207, ac
+    ld   ac, [ed_cy1]
+    LEAVE
+etw_top:
+    ld   32, ac
+    ld   ac, [ed_cy0]
+    ld   239, ac
+    ld   ac, [ed_cy1]
+    LEAVE
+
+; tb_hide - the picture back, and its rows' mode
+.chunk
+etb_hide:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [ed_bl]
+    ld   ac, [ed_tb]
+    ld   ac, [ed_cy0]
+    ld   239, ac
+    ld   ac, [ed_cy1]
+    ld   TBS >> 8, ac
+    ld   ac, [ed_bh]
+    ld   0x60, ac
+    ld   ac, [ed_pe]
+eth_l:
+    ld   [ed_pe], ac
+    ld   ac, [R6]
+    inc
+    ld   ac, [R7]
+    CALL etb_pair
+    ld   [ed_pe], ac
+    add  2, ac
+    ld   ac, [ed_pe]
+    bne  eth_l
+    ld   [ph_mode], ac
+    ld   ac, [T0]
+    ld   ac, [T1]
+    CALL etb_mode
+    LEAVE
+
+; tb_save - the bar's rows of every pair of pages to TBS: the odd page's
+; 32, then the even page's last 16 (a leaf, the map at FF)
+.chunk
+etb_save:
+    clr  ac
+    ld   ac, [ed_bl]
+    ld   TBS >> 8, ac
+    ld   ac, [ed_bh]
+    ld   0x60, ac
+    ld   ac, [ed_pe]
+ets_pair:
+    ld   [ed_pe], ac
+    inc
+    ld   ac, [T0]
+    ld   [ed_tlo], ac
+    ld   ac, [T1]
+    ld   32, ac
+    ld   ac, [T2]
+ets_b:
+    ld   [T0], y
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   [ed_bh], y
+    ld   [ed_bl], x
+    ld   ac, [y,x]
+    ld   [ed_bl], ac
+    inc
+    ld   ac, [ed_bl]
+    bne  ets_c
+    ld   [ed_bh], ac
+    inc
+    ld   ac, [ed_bh]
+ets_c:
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    dec
+    ld   ac, [T2]
+    bne  ets_b
+    ld   [T0], ac
+    and  1, ac
+    beq  ets_next
+    ld   [ed_pe], ac
+    ld   ac, [T0]
+    ld   [ed_tlo], ac
+    add  32, ac
+    ld   ac, [T1]
+    ld   16, ac
+    ld   ac, [T2]
+    bra  ets_b
+ets_next:
+    ld   [ed_pe], ac
+    add  2, ac
+    ld   ac, [ed_pe]
+    bne  ets_pair
+    RET
+
+; tb_pair - the next pair's 48 bytes from TBS to the bar's rows of pages
+; R7 (the odd one) and R6 (a leaf)
+.chunk
+etb_pair:
+    ld   [R7], ac
+    ld   ac, [T0]
+    ld   [ed_tlo], ac
+    ld   ac, [T1]
+    ld   32, ac
+    ld   ac, [T2]
+etp_b:
+    ld   [ed_bh], y
+    ld   [ed_bl], x
+    ld   [y,x], ac
+    ld   [T0], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [ed_bl], ac
+    inc
+    ld   ac, [ed_bl]
+    bne  etp_c
+    ld   [ed_bh], ac
+    inc
+    ld   ac, [ed_bh]
+etp_c:
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    dec
+    ld   ac, [T2]
+    bne  etp_b
+    ld   [T0], ac
+    xor  [R7], ac
+    bne  etp_x
+    ld   [R6], ac
+    ld   ac, [T0]
+    ld   [ed_tlo], ac
+    add  32, ac
+    ld   ac, [T1]
+    ld   16, ac
+    ld   ac, [T2]
+    bra  etp_b
+etp_x:
+    RET
+
+; tb_mode - the bar's 64 mode bytes: T0 its first 32 lines, T1 the rest
+; (a leaf)
+.chunk
+etb_mode:
+    ld   [ed_mlo], ac
+    ld   ac, [T2]
+    ld   32, ac
+    ld   ac, [T3]
+etm_1:
+    ld   [ed_mpg], y
+    ld   [T2], x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T2], ac
+    add  32, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    ld   [T3], ac
+    dec
+    ld   ac, [T3]
+    bne  etm_1
+    RET
+
+; tb_tools - the bar's first text row: the tool chosen white on black
+.chunk
+etb_tools:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [ed_tc]
+    ld   [ed_tlo], ac
+    ld   ac, [ed_tr]
+ett_l:
+    ld   [ed_tc], ac
+    add  80, x
+    ld   etb_txt >> 8, y
+    ld   [y,x], ac
+    dec
+    xor  [ed_tool], ac
+    beq  ett_set
+    ld   0x80, ac
+ett_set:
+    ld   ac, [ed_inv]
+    ld   [ed_tc], x
+    ld   [y,x], ac
+    CALL etputc
+    ld   [ed_tc], ac
+    xor  80, ac
+    bne  ett_l
+    LEAVE
+
+; tb_stat - the status row
+.chunk
+etb_stat:
+    PUSH_LINK
+    STROW
+    clr  ac
+    ld   ac, [ed_tc]
+etx_l:
+    ld   0x20, ac
+    CALL etputc
+    ld   [ed_tc], ac
+    xor  80, ac
+    bne  etx_l
+    CALL est_name
+    CALL est_size
+    ld   28, ac
+    ld   ac, [ed_tc]
+    ld   0x58, ac
+    CALL etputc
+    ld   34, ac
+    ld   ac, [ed_tc]
+    ld   0x59, ac
+    CALL etputc
+    CALL est_xy
+    ld   [ed_msg], ac
+    CALL est_msg
+    LEAVE
+
+; st_name - the file's name, and a * when it is changed
+.chunk
+est_name:
+    PUSH_LINK
+    STROW
+    ld   1, ac
+    ld   ac, [ed_tc]
+    ld   [ed_named], ac
+    beq  esn_new
+    ld   ph_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    bra  esn_p
+esn_new:
+    ld   es_new & 0xFF, ac
+    ld   ac, [R0]
+    ld   es_new >> 8, ac
+    ld   ac, [R1]
+esn_p:
+    CALL etputs
+esn_pad:
+    ld   [ed_tc], ac
+    xor  13, ac
+    beq  esn_st
+    ld   0x20, ac
+    CALL etputc
+    bra  esn_pad
+esn_st:
+    ld   [ed_dirty], ac
+    beq  esn_sp
+    ld   0x2A, ac
+    bra  esn_c
+esn_sp:
+    ld   0x20, ac
+esn_c:
+    CALL etputc
+    LEAVE
+
+.chunk
+est_size:
+    PUSH_LINK
+    STROW
+    ld   15, ac
+    ld   ac, [ed_tc]
+    ld   es_size & 0xFF, ac
+    ld   ac, [R0]
+    ld   es_size >> 8, ac
+    ld   ac, [R1]
+    CALL etputs
+    ld   [ed_size], ac
+    or   0x30, ac
+    CALL etputc
+    ld   0x20, ac
+    CALL etputc
+    ld   0x3E, ac
+    CALL etputc
+    LEAVE
+
+.chunk
+est_xy:
+    PUSH_LINK
+    STROW
+    ld   30, ac
+    ld   ac, [ed_tc]
+    ld   [ed_x], ac
+    CALL etnum
+    ld   36, ac
+    ld   ac, [ed_tc]
+    ld   [ed_y], ac
+    CALL etnum
+    LEAVE
+
+; st_msg - message AC on the status row (kept for when the bar is away)
+.chunk
+est_msg:
+    PUSH_LINK
+    ld   ac, [ed_msg]
+    ld   [ed_tb], ac
+    beq  esm_x
+    ld   [ed_msg], ac
+    CALL e_mhead
+    CALL e_mpad
+esm_x:
+    LEAVE
+
+.chunk
+e_mhead:
+    PUSH_LINK
+    ld   ac, [ed_msg]
+    add  emsgl & 0xFF, x
+    ld   emsgl >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [ed_msg], ac
+    add  emsgh & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    STROW
+    ld   41, ac
+    ld   ac, [ed_tc]
+    CALL etputs
+    LEAVE
+
+.chunk
+e_mpad:
+    PUSH_LINK
+emp_l:
+    ld   [ed_tc], ac
+    xor  80, ac
+    beq  emp_x
+    ld   0x20, ac
+    CALL etputc
+    bra  emp_l
+emp_x:
+    LEAVE
+
+; tputc - character AC at column ed_tc of the text row ed_tr, and the
+; column on: 8 rows of the ROM's font to every 2nd byte of the column's
+; odd page (a leaf; the map at 07)
+.chunk
+etputc:
+    xor  [ed_inv], ac
+    ld   ac, [T0]
+    ld   [ed_tc], ac
+    shl
+    add  0x61, ac
+    ld   ac, [T2]
+    ld   [ed_tr], ac
+    ld   ac, [T1]
+    clr  ac
+    ld   ac, [T3]
+etc_r:
+    ld   [T3], ac
+    add  LIB_FONT >> 8, y
+    ld   [T0], x
+    ld   [y,x], ac
+    ld   [T2], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    ld   [T3], ac
+    inc
+    ld   ac, [T3]
+    xor  8, ac
+    bne  etc_r
+    ld   [ed_tc], ac
+    inc
+    ld   ac, [ed_tc]
+    RET
+
+; tputs - the string at R1:R0
+.chunk
+etputs:
+    PUSH_LINK
+etu_l:
+    ld   [R0], x
+    ld   [R1], y
+    ld   [y,x], ac
+    beq  etu_x
+    CALL etputc
+    ld   [R0], ac
+    inc
+    ld   ac, [R0]
+    bne  etu_l
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+    bra  etu_l
+etu_x:
+    LEAVE
+
+; tnum - AC as three digits
+.chunk
+etnum:
+    PUSH_LINK
+    ld   ac, [ed_m]
+    ld   0x30, ac
+    ld   ac, [ed_k]
+etn_h:
+    ld   [ed_m], ac
+    sub  100, ac
+    bcs  etn_hx
+    ld   ac, [ed_m]
+    ld   [ed_k], ac
+    inc
+    ld   ac, [ed_k]
+    bra  etn_h
+etn_hx:
+    ld   [ed_k], ac
+    CALL etputc
+    ld   0x30, ac
+    ld   ac, [ed_k]
+etn_t:
+    ld   [ed_m], ac
+    sub  10, ac
+    bcs  etn_tx
+    ld   ac, [ed_m]
+    ld   [ed_k], ac
+    inc
+    ld   ac, [ed_k]
+    bra  etn_t
+etn_tx:
+    ld   [ed_k], ac
+    CALL etputc
+    ld   [ed_m], ac
+    or   0x30, ac
+    CALL etputc
+    LEAVE
+
+; tb_pal - the 256 colors: 64 cells across, 4 rows of 4 picture rows (a
+; leaf)
+.chunk
+etb_pal:
+    clr  ac
+    ld   ac, [T0]
+etq_j:
+    ld   [T0], ac
+    shl
+    add  0x60, ac
+    ld   ac, [T2]
+    ld   [ed_tlo], ac
+    add  32, ac
+    ld   ac, [T1]
+    ld   [T0], ac
+    ld   ac, [T3]
+    ld   16, ac
+    ld   ac, [T4]
+etq_r:
+    ld   [T2], y
+    ld   [T1], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [T2], ac
+    add  1, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    ld   [T4], ac
+    dec
+    ld   ac, [T4]
+    beq  etq_n
+    and  3, ac
+    bne  etq_r
+    ld   [T3], ac
+    add  64, ac
+    ld   ac, [T3]
+    bra  etq_r
+etq_n:
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    xor  64, ac
+    bne  etq_j
+    RET
+
+; tb_ink - right of the colors: the ink (cells 65-73) and the paper
+; (75-79), black between (a leaf)
+.chunk
+etb_ink:
+    ld   64, ac
+    ld   ac, [T0]
+eti_j:
+    ld   [T0], ac
+    xor  64, ac
+    beq  eti_v
+    xor  64 ^ 74, ac
+    beq  eti_v
+    ld   [T0], ac
+    sub  74, ac
+    bcs  eti_ink
+    ld   [ed_paper], ac
+    bra  eti_v
+eti_ink:
+    ld   [ed_ink], ac
+eti_v:
+    ld   ac, [T3]
+    ld   [T0], ac
+    shl
+    add  0x60, ac
+    ld   ac, [T2]
+    ld   [ed_tlo], ac
+    add  32, ac
+    ld   ac, [T1]
+    ld   16, ac
+    ld   ac, [T4]
+eti_r:
+    ld   [T2], y
+    ld   [T1], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [T2], ac
+    add  1, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    ld   [T4], ac
+    dec
+    ld   ac, [T4]
+    bne  eti_r
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    xor  80, ac
+    bne  eti_j
+    RET
+
+; ============================================================
+; the pointer: a cross on the picture and on the colors (white inside,
+; black outside, the pixel in its middle left alone), an arrow on the
+; text rows.  The screen bytes under it are kept in PSV
+; ============================================================
+.chunk
+ep_show:
+    clr  ac
+    ld   ac, [ed_pn]
+    MAPFF
+    ld   [ed_zone], ac
+    beq  epw_pic
+    xor  3, ac
+    beq  epw_pal
+    GOTO ep_arrow
+epw_pic:
+    ld   [ed_x], ac
+    ld   ac, [ed_bx]
+    ld   [ed_xmax], ac
+    ld   ac, [ed_plim]
+    ld   [ed_cy0], ac
+    ld   ac, [ed_py0]
+    ld   [ed_cy1], ac
+    ld   ac, [ed_py1]
+    ld   [ed_wide], ac
+    xor  1, ac
+    ld   ac, [ed_p2]
+    GOTO ep_cross
+epw_pal:
+    ld   [ed_cc], ac
+    ld   ac, [ed_bx]
+    ld   79, ac
+    ld   ac, [ed_plim]
+    ld   [ed_tby], ac
+    add  16, ac
+    ld   ac, [ed_py0]
+    add  15, ac
+    ld   ac, [ed_py1]
+    ld   1, ac
+    ld   ac, [ed_p2]
+    GOTO ep_cross
+
+.chunk
+ep_cross:
+    clr  ac
+    ld   ac, [T5]
+epc_l:
+    ld   [T5], ac
+    add  eptab & 0xFF, x
+    ld   eptab >> 8, y
+    ld   [y,x], ac
+    add  [ed_bx], ac
+    ld   ac, [ed_qx]
+    ld   [ed_plim], ac
+    sub  [ed_qx], ac
+    bcs  epc_sk
+    ld   [T5], ac
+    add  (eptab & 0xFF) + 1, x
+    ld   [y,x], ac
+    add  [ed_y], ac
+    ld   ac, [ed_qy]
+    sub  [ed_py0], ac
+    bcs  epc_sk
+    ld   [ed_py1], ac
+    sub  [ed_qy], ac
+    bcs  epc_sk
+    ld   [T5], ac
+    add  (eptab & 0xFF) + 2, x
+    ld   [y,x], ac
+    ld   ac, [T3]               ; the color
+    ld   [ed_qy], ac
+    LOWIDX
+    ld   ac, [T1]
+    ld   [ed_p2], ac
+    beq  epc_w
+    ld   [ed_qx], ac
+    shl
+    bra  epc_p
+epc_w:
+    ld   [ed_qx], ac
+epc_p:
+    add  0x60, ac
+    ld   ac, [T0]
+    GOTO ep_cross2
+epc_sk:
+    GOTO epc_n
+
+.chunk
+ep_cross2:
+    ld   PSV >> 8, y
+    ld   [ed_pn], x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [ed_pn], ac
+    add  16, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   [T0], y
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [ed_p2], ac
+    beq  epc_s
+    ld   [T0], ac
+    add  1, y
+    ld   [y,x], ac
+    ld   ac, [T4]
+    ld   [T3], ac
+    ld   ac, [y,x]
+epc_s:
+    ld   PSV >> 8, y
+    ld   [ed_pn], ac
+    add  32, x
+    ld   [T2], ac
+    ld   ac, [y,x]
+    ld   [ed_pn], ac
+    add  48, x
+    ld   [T4], ac
+    ld   ac, [y,x]
+    ld   [ed_pn], ac
+    inc
+    ld   ac, [ed_pn]
+    GOTO epc_n
+
+.chunk
+epc_n:
+    ld   [T5], ac
+    add  3, ac
+    ld   ac, [T5]
+    xor  36, ac
+    beq  epc_x
+    GOTO epc_l
+epc_x:
+    MAP07
+    RET
+
+; the arrow: 8 rows (fewer at the end of the text rows) of the byte under
+; the pointer, its shape turned over
+.chunk
+ep_arrow:
+    clr  ac
+    ld   ac, [ed_p2]
+    ld   ac, [T5]
+    ld   [ed_cc], ac
+    shl
+    add  0x61, ac
+    ld   ac, [T0]
+    ld   16, ac
+    sub  [ed_zr], ac
+    ld   ac, [T6]
+    sub  9, ac
+    bcs  epa_ok
+    ld   8, ac
+    ld   ac, [T6]
+epa_ok:
+    ld   [ed_zr], ac
+    shl
+    add  [ed_tlo], ac
+    ld   ac, [T1]
+epa_l:
+    ld   PSV >> 8, y
+    ld   [ed_pn], x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [ed_pn], ac
+    add  16, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   [T0], y
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [T5], ac
+    add  earrow & 0xFF, x
+    ld   earrow >> 8, y
+    ld   [y,x], ac
+    xor  [T2], ac
+    ld   [T0], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   PSV >> 8, y
+    ld   [ed_pn], ac
+    add  32, x
+    ld   [T2], ac
+    ld   ac, [y,x]
+    ld   [ed_pn], ac
+    inc
+    ld   ac, [ed_pn]
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    ld   [T5], ac
+    inc
+    ld   ac, [T5]
+    xor  [T6], ac
+    bne  epa_l
+    MAP07
+    RET
+
+; p_hide - the screen as it was under the pointer (a leaf)
+.chunk
+ep_hide:
+epd_l:
+    ld   [ed_pn], ac
+    beq  epd_x
+    dec
+    ld   ac, [ed_pn]
+    ld   ac, x
+    ld   PSV >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [ed_pn], ac
+    add  16, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [ed_pn], ac
+    add  32, x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [ed_pn], ac
+    add  48, x
+    ld   [y,x], ac
+    ld   ac, [T4]
+    ld   [T0], y
+    ld   [T1], x
+    ld   [T2], ac
+    ld   ac, [y,x]
+    ld   [ed_p2], ac
+    beq  epd_l
+    ld   [T0], ac
+    add  1, y
+    ld   [T4], ac
+    ld   ac, [y,x]
+    bra  epd_l
+epd_x:
+    RET
+
+; ============================================================
+; data
+; ============================================================
+; the bar's first text row, and for each of its columns the tool (1-7) or
+; command (8-13) a click there chooses
+.page
+etb_txt:
+    #d " Pencil  Brush  Eraser  Line  Rect  Fill  Pick  Undo  Save  As  New  Hide  Exit "
+etb_tab:
+    #d8 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3
+    #d8 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5
+    #d8 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 8
+    #d8 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 11
+    #d8 11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13
+
+; the cross: for each of its 12 pixels, across, down, color
+.chunk
+eptab:
+    #d8 0xFF, 0x00, 0xFF,  0x01, 0x00, 0xFF,  0xFE, 0x00, 0x00,  0x02, 0x00, 0x00
+    #d8 0x00, 0xFF, 0xFF,  0x00, 0xFE, 0xFF,  0x00, 0x01, 0xFF,  0x00, 0x02, 0xFF
+    #d8 0x00, 0xFD, 0x00,  0x00, 0xFC, 0x00,  0x00, 0x03, 0x00,  0x00, 0x04, 0x00
+earrow:
+    #d8 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x07, 0x05
+; the keys: a character, its command; 00 ends
+ekeytab:
+    #d8 0x70, 1, 0x50, 1, 0x62, 2, 0x42, 2, 0x65, 3, 0x45, 3, 0x6C, 4, 0x4C, 4
+    #d8 0x72, 5, 0x52, 5, 0x66, 6, 0x46, 6, 0x6B, 7, 0x4B, 7, 0x75, 8, 0x55, 8
+    #d8 0x73, 9, 0x53, 9, 0x61, 10, 0x41, 10, 0x6E, 11, 0x4E, 11, 0x68, 12, 0x48, 12
+    #d8 0x09, 12, 0x78, 13, 0x58, 13, 0x1B, 13, 0x6D, 14, 0x4D, 14
+    #d8 0x5B, 15, 0x2D, 15, 0x5D, 16, 0x3D, 16, 0x2B, 16, 0
+emsgl:
+    #d8 es_m0 & 0xFF, es_m1 & 0xFF, es_m2 & 0xFF, es_m3 & 0xFF, es_m4 & 0xFF, es_m5 & 0xFF, es_m6 & 0xFF, es_m7 & 0xFF, es_m8 & 0xFF
+emsgh:
+    #d8 es_m0 >> 8, es_m1 >> 8, es_m2 >> 8, es_m3 >> 8, es_m4 >> 8, es_m5 >> 8, es_m6 >> 8, es_m7 >> 8, es_m8 >> 8
+
+.chunk
+es_m0:
+    #d 0x00
+es_m1:
+    #d "Saving...", 0x00
+es_m2:
+    #d "Saved", 0x00
+es_m3:
+    #d "The card could not be written", 0x00
+es_m4:
+    #d "Too much was drawn to undo it", 0x00
+es_m5:
+    #d "Nothing to undo", 0x00
+es_m6:
+    #d "Discard the changes?  Y: yes  N: no", 0x00
+es_m7:
+    #d "Save as: ", 0x00
+es_m8:
+    #d "Undone", 0x00
+es_new:
+    #d "(new)", 0x00
+es_size:
+    #d "Size < ", 0x00

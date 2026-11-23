@@ -24,6 +24,7 @@
 ;     Space, Right, Enter    the next picture
 ;     Left, Backspace        the picture before
 ;     S           slide show on or off (a picture about every 9 seconds)
+;     E           the picture editor (photo_edit.masm, included below)
 ;     Esc         back to the DOS (menu_poll)
 ;
 ; Pinboard's Files card runs it for a .PIC file in any folder (MB_PHOTO =
@@ -34,15 +35,17 @@
 ; byte until power-off; Pinboard sets it in a color mode, which only a
 ; rev B board shows).
 ;
-; RAM: the program at x0100 (asm_expand.py pages it), zero page x20-x3F.
-; The whole video RAM is the picture.
+; RAM: the program at x0100-x24FF (asm_expand.py pages it), zero page
+; x20-x3F; the editor's tables x2500-x4CFF and x5400-x59FF and zero page
+; x40-x9F.  The whole video RAM is the picture.
 ;
 ;     python3 asm_expand.py photo.masm                photo.asm
 ;     python3 gen_plc.py photo.asm -o ../../sdcard/PHOTO.PLC
 ;     python3 gen_photos.py                           sdcard/PHOTOS/*.PIC
 ;     python3 test_photo.py                           runs it in placard_sim
+;     python3 test_photo_edit.py                      the editor, in the web emulator
 ;
-; Date: 11/22/2026
+; Date: 11/23/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -74,6 +77,8 @@ MB_PCLUS  = 0x1B            ; 4: the folder of the picture asked for
 MB_PN     = 0x1F            ; its number among the folder's .PIC files
 
 .prefix ph
+.region 0x0100, 0x1F00
+.region 0x2000, 0x2500
 .region 0x0100, 0x1F00
 
 ; ============================================================
@@ -200,20 +205,7 @@ opendir:
 ; ------------------------------------------------------------
 .chunk
 count:
-    CALL opendir
-    bne  ct_end
-ct_loop:
-    CALL fs_next
-    bne  ct_end
-    CALL is_pic
-    bne  ct_loop
-    ld   [ph_tot], ac
-    inc
-    ld   ac, [ph_tot]
-    xor  255, ac                ; (255 at most)
-    bne  ct_loop
-ct_end:
-    ld   [ph_tot], ac
+    CALL tally
     bne  ct_some
     ld   s_none & 0xFF, ac
     ld   ac, [R0]
@@ -231,6 +223,30 @@ ct_some:
     GOTO begin
 ct_ask:
     GOTO intro
+
+; ------------------------------------------------------------
+; tally - ph_tot = the .PIC files in the folder, and AC
+; ------------------------------------------------------------
+.chunk
+tally:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [ph_tot]
+    CALL opendir
+    bne  ty_end
+ty_loop:
+    CALL fs_next
+    bne  ty_end
+    CALL is_pic
+    bne  ty_loop
+    ld   [ph_tot], ac
+    inc
+    ld   ac, [ph_tot]
+    xor  255, ac                ; (255 at most)
+    bne  ty_loop
+ty_end:
+    ld   [ph_tot], ac
+    LEAVE
 
 ; ------------------------------------------------------------
 ; is_pic - AC = 0 when FS_ENTRY is a file named *.PIC (a leaf)
@@ -537,13 +553,18 @@ keys2:
     GOTO loop
 k2_s:
     xor  0x68 ^ 0x73, ac        ; S: slide show
-    bne  k2_no
+    bne  k2_e
     ld   [ph_show], ac
     xor  1, ac
     ld   ac, [ph_show]
     clr  ac
     ld   ac, [ph_tl]
     ld   ac, [ph_th]
+    GOTO loop
+k2_e:
+    xor  0x73 ^ 0x65, ac        ; E: the editor (photo_edit.masm)
+    bne  k2_no
+    GOTO edit
 k2_no:
     GOTO loop
 
@@ -605,8 +626,13 @@ s_bad:
 s_keys1:
     #d "Space, Right or Enter: next   Left or Backspace: the one before", 0x00
 s_keys2:
-    #d "S: slide show on or off   H: 160 or 80 across   Esc: exit", 0x00
+    #d "S: slide show   H: 160 or 80 across   E: edit the picture   Esc: exit", 0x00
 s_ask1:
     #d "Press H for 160 across (a rev B board),", 0x00
 s_ask2:
     #d "or any other key for 80 across (any board).", 0x00
+
+; ============================================================
+; the editor
+; ============================================================
+.include "photo_edit.masm"

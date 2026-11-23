@@ -1,6 +1,6 @@
 # Documentation
 
-Date: 2026-11-22
+Date: 2026-11-23
 
 The design documents, grouped by subject.  Drawings sit next to the document that uses them.
 
@@ -35,7 +35,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [DOS.md](software/DOS.md): the DOS and `.PLC` program files
 - [MENU.md](software/MENU.md): the demo menu
 - [PINBOARD.md](software/PINBOARD.md): Pinboard, a windowed desktop with a file browser, a clock, a calculator and an editor, in 2, 4 or 16 colors (`PINBOARD.PLC`)
-- [PHOTOS.md](software/PHOTOS.md): the photo viewer and its picture files, 160 x 240 in 256 colors on rev B (`PHOTO.PLC`)
+- [PHOTOS.md](software/PHOTOS.md): the photo viewer, its picture editor and the picture files, 160 x 240 in 256 colors on rev B (`PHOTO.PLC`)
 - [WAVE.md](software/WAVE.md): the sound player, which plays 8-bit WAV recordings from the SD card (`WAVE.PLC`)
 - [WEB.md](software/WEB.md): the web browser for the WiFi card: the module fetches and lays out the page and converts its pictures, the Placard draws (`WEB.PLC`); runs in simulation only
 - [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
