@@ -5,7 +5,7 @@ case_print_check.py - checks STL files that are already in print orientation
 
 - watertight: every edge is shared by exactly two triangles, in opposite
   directions;
-- bed: the footprint fits a 220 x 220 mm bed with a margin;
+- bed: the footprint fits a 256 x 256 mm bed (Bambu Lab A1) with a margin;
 - overhangs: no downward-facing surface above the bed steeper than 45 degrees
   from vertical.  Each one found is listed by height, with its area and
   where it is, so it can be read as a short straight bridge or as a floating
@@ -18,7 +18,7 @@ case_print_check.py - checks STL files that are already in print orientation
 
 Exits 1 if any file fails.
 
-Date: 2026-11-16
+Date: 2026-11-24
 """
 
 import struct
@@ -27,7 +27,7 @@ from collections import defaultdict
 
 import numpy as np
 
-BED, MARGIN = 220.0, 5.0
+BED, MARGIN = 256.0, 5.0
 LAYER = 0.2
 CELL = 0.4
 

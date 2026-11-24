@@ -1,26 +1,24 @@
 // shoot_print.js - renders of the 3D-printed case (gen_case_print.py --mesh mesh, gen_case.py --mesh mesh
-// for the board's parts).  Serve this folder on port 8765, then: node shoot_print.js [view ...]
-// Writes out/print_*.png.  Date: 2026-11-17
+// for the board's parts).  node shoot_print.js [view ...]   (needs three in web/node_modules: cd web && npm install three)
+// The page's files are handed to the browser straight from this folder, so no web server is needed.
+// Writes out/print_*.png.  Date: 2026-11-24
 const {chromium} = require('playwright');
 const fs = require('fs');
 const B = JSON.parse(fs.readFileSync('mesh/board.json'));
 const L = JSON.parse(fs.readFileSync(process.env.PRINT_LAYOUT || '../../../case/print/print_layout.json'));
 const W = B.W, D = B.D;
 const BODY = '#3b3f45', TOP = '#b9d6ea', COVER = '#23252a', STRAP = '#c9a227';
-const quad = n => [n.includes('left') && !n.includes('wall_left') ? -1 : 1, n.includes('front') ? -1 : 1];
 
-function caseItems(o) {              // o: explode distances {floor, straps, walls, top, covers, spread}, hide: [..]
+function caseItems(o) {              // o: explode distances {floor, walls, top, covers, spread}, hide: [..]
   const it = [], sp = o.spread || 0, hide = o.hide || [];
   const add = (name, c, off, extra = {}) => { if (!hide.some(h => name.startsWith(h))) it.push({f: 'mesh/print_' + name + '.stl', c, o: off, ...extra}); };
-  for (const q of ['front_left', 'front_right', 'back_left', 'back_right']) {
-    const sx = q.includes('left') ? -1 : 1, sy = q.includes('front') ? -1 : 1;
-    add('floor_' + q, BODY, [sx * sp, sy * sp, -(o.floor || 0)]);
-    add('top_' + q, o.topColor || TOP, [sx * sp, sy * sp, o.top || 0], {a: o.topAlpha ?? 0.55, ec: '#2f5f85', r: 0.25});
+  for (const [q, sx] of [['left', -1], ['right', 1]]) {
+    add('floor_' + q, BODY, [sx * sp, 0, -(o.floor || 0)]);
+    add('top_' + q, o.topColor || TOP, [sx * sp, 0, o.top || 0], {a: o.topAlpha ?? 0.55, ec: '#2f5f85', r: 0.25});
   }
   const w = o.walls || 0;
-  for (const [n, off] of [['wall_front_left', [-sp, -w, 0]], ['wall_front_right', [sp, -w, 0]], ['wall_back_left', [-sp, w, 0]],
-      ['wall_back_right', [sp, w, 0]], ['wall_left_front', [-w, -sp, 0]], ['wall_left_back', [-w, sp, 0]],
-      ['wall_right_front', [w, -sp, 0]], ['wall_right_back', [w, sp, 0]]]) add(n, o.wallColor || BODY, off);
+  for (const [n, off] of [['wall_front', [0, -w, 0]], ['wall_back', [0, w, 0]], ['wall_left', [-w, 0, 0]], ['wall_right', [w, 0, 0]]])
+    add(n, o.wallColor || BODY, off);
   for (const n of (o.coverList || ['slot_cover_1', 'slot_cover_2', 'slot_cover_3', 'slot_cover_4', 'cart_cover']))
     add(n, COVER, [0, 0, o.covers || 0]);
   return it;
@@ -52,37 +50,46 @@ const views = {
     items: [...caseItems({hide: ['top_', 'slot_cover', 'cart_cover'], wallColor: '#5b616a'})]},
   print_corner: {cam: [-95, -120, 75], look: [12, 10, 8], fov: 26,
     items: [...caseItems({hide: ['top_', 'slot_cover', 'cart_cover', 'wall_front'], wallColor: '#5b616a'}),
-            {f: 'mesh/print_wall_front_left.stl', c: '#8a929c', o: [0, -22, 0]}]},
+            {f: 'mesh/print_wall_front.stl', c: '#8a929c', o: [0, -22, 0]}]},
   print_seams: {cam: [60, -150, 330], look: [160, 105, 0], fov: 30,
-    items: [{f: 'mesh/print_top_front_left.stl', c: '#9fc3dc', o: [-5, -5, 0]}, {f: 'mesh/print_top_front_right.stl', c: '#b9d6ea', o: [5, -5, 0]},
-            {f: 'mesh/print_top_back_left.stl', c: '#b9d6ea', o: [-5, 5, 0]}, {f: 'mesh/print_top_back_right.stl', c: '#9fc3dc', o: [5, 5, 0]}]},
+    items: [{f: 'mesh/print_top_left.stl', c: '#9fc3dc', o: [-6, 0, 0]}, {f: 'mesh/print_top_right.stl', c: '#b9d6ea', o: [6, 0, 0]}]},
+  // a floor catch and its stop block, with the right wall pulled 16 mm out to show the window in its flange
+  print_catch: {cam: [236, 168, 34], look: [291, 196, -6], fov: 26,
+    items: [...caseItems({hide: ['top_', 'slot_cover', 'cart_cover', 'wall_right'], wallColor: '#5b616a'}),
+            {f: 'mesh/print_wall_right.stl', c: '#8a929c', o: [16, 0, 0]}]},
+  // the top from below: its pegs, and the walls' lugs they drop into
+  print_pegs: {cam: [470, -150, -175], look: [215, 95, 22], fov: 30,
+    items: [{f: 'mesh/print_top_left.stl', c: '#9fc3dc', o: [0, 0, 26]}, {f: 'mesh/print_top_right.stl', c: '#b9d6ea', o: [0, 0, 26]},
+            {f: 'mesh/print_wall_front.stl', c: '#5b616a', o: [0, 0, 0]}, {f: 'mesh/print_wall_right.stl', c: '#5b616a', o: [0, 0, 0]},
+            {f: 'mesh/print_wall_back.stl', c: '#5b616a', o: [0, 0, 0]}, {f: 'mesh/print_wall_left.stl', c: '#5b616a', o: [0, 0, 0]}]},
 };
 // every piece as it lies on the bed
 {
-  const rows = [['floor_front_left', 'floor_front_right'], ['floor_back_left', 'floor_back_right'],
-    ['top_front_left', 'top_front_right'], ['top_back_left', 'top_back_right'],
-    ['wall_front_left', 'wall_front_right', 'wall_left_front'], ['wall_back_left', 'wall_back_right', 'wall_left_back'],
-    ['wall_right_front', 'wall_right_back', 'slot_cover', 'cart_cover', 'dovetail_test']];
+  const cols = [['floor_left', 'floor_right', 'top_left', 'top_right', 'slot_cover', 'cart_cover'],
+    ['wall_front', 'wall_back', 'wall_left', 'wall_right', 'dovetail_test', 'snap_test_wall', 'snap_test_floor', 'snap_test_top']];
   const size = Object.fromEntries(L.pieces.map(p => [p.name, p.size]));
-  const it = []; let y = 0;
-  const cols = [[0, 1], [2, 3], [4, 5, 6]];
-  let x0 = 0;
-  for (const col of cols) {
-    let yy = 0, wmax = 0;
-    for (const r of col) { let x = x0, h = 0;
-      for (const n of rows[r]) { const s = size[n];
-        it.push({f: 'mesh/bed/' + n + '.stl', c: n.startsWith('top') ? '#9fc3dc' : n.includes('cover') ? '#4a4d53' : n.includes('dovetail') ? STRAP : '#5b616a', o: [x, yy, 0]});
-        x += s[0] + 12; h = Math.max(h, s[1]); }
-      wmax = Math.max(wmax, x - x0); yy += h + 14; }
-    x0 += wmax + 10;
+  const it = [];
+  let y0 = 0;
+  for (const [k, col] of cols.entries()) {       // one row of pieces per entry, the rows stacked toward the back
+    let x = 0, h = 0;
+    for (const n of col) { const s = size[n];
+      it.push({f: 'mesh/bed/' + n + '.stl', c: n.startsWith('top') || n === 'snap_test_top' ? '#9fc3dc' : n.includes('cover') ? '#4a4d53' : n.includes('test') ? STRAP : '#5b616a', o: [x, y0, 0]});
+      x += s[0] + 14; h = Math.max(h, s[1]); }
+    y0 += h + 16;
   }
-  views.print_bed = {cam: [380, -520, 620], look: [470, 150, 0], fov: 36, items: it, w: 2000, h: 1100};
+  views.print_bed = {cam: [380, -560, 760], look: [380, 200, 0], fov: 36, items: it, w: 2000, h: 1100};
 }
 (async () => {
   const b = await chromium.launch({args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']});
   const p = await b.newPage({viewport: {width: 1600, height: 1000}});
   p.on('console', m => { if (m.type() === 'error') console.log('ERR', m.text()); });
   p.on('pageerror', e => console.log('PAGEERR', e.message));
+  const mime = {html: 'text/html', js: 'text/javascript', stl: 'model/stl', json: 'application/json'};
+  await p.route('http://localhost:8765/**', r => {
+    const f = require('path').join(__dirname, decodeURIComponent(new URL(r.request().url()).pathname));
+    fs.existsSync(f) ? r.fulfill({body: fs.readFileSync(f), contentType: mime[f.split('.').pop()] || 'application/octet-stream'})
+                     : r.fulfill({status: 404, body: ''});
+  });
   for (const [name, v] of Object.entries(views)) {
     if (process.argv[2] && !process.argv.slice(2).includes(name)) continue;
     await p.setViewportSize({width: v.w || 1600, height: v.h || 1000});
