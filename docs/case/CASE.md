@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-11-17
+Date: 2026-11-24
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -322,66 +322,80 @@ bent metal from `gen_case_quote.py --mesh` (views `bends` and `bends_rear`).
 
 ## 3D-printed version
 
-The whole case can also be printed on a 220 x 220 mm bed (Creality Ender 3).
-It goes together with dovetail seams and 41 M3 screws, 25 of them into
-nuts. There is no glue, no heat-set insert and no thread cut in plastic.
+The whole case can also be printed on a 256 x 256 mm bed (Bambu Lab A1).
+It is 8 main pieces, held together by dovetail seams, printed catches and
+pegs, and the 16 M3 screws of the board's standoffs. There is no nut, no
+glue, no heat-set insert and no thread cut in plastic.
 `src/scripts/gen_case_print.py` makes it from the same board file. It has
 the same outside size, connector cut-outs, top openings and covers as the
 aluminium case, which stays as it is. Every part is designed to print flat,
 without supports.
 
+An earlier version for a 220 x 220 mm bed had 16 main pieces, 41 screws and
+25 nuts. It is in the repository's history (pull request 342).
+
 ![Printed case, assembled](case_print_assembled.png)
 
 ![From the back](case_print_rear.png)
 
-![Exploded: floor pieces, wall panels, board, top pieces, covers](case_print_exploded.png)
+![Exploded: floor halves, wall panels, board, top halves, covers](case_print_exploded.png)
 
 ![Exploded, from the back](case_print_exploded_rear.png)
 
 ### How it is joined
 
-![Seams, dovetail tabs, nut seats, nut lugs and corner tabs](case_print_pieces.png)
+![Seam, dovetail tabs, catches, stop blocks, pegs and corner tabs](case_print_pieces.png)
 
-- **Floor.** Four flat pieces, with a boss under each board hole (H1-H8).
-  The seams are at x 160 and y 114, clear of the parked covers.
+- **Floor.** Two flat pieces, with a boss under each board hole (H1-H8).
+  The seam is at x 160, clear of the parked covers.
 - **Dovetail seams.** Flared tabs along one piece's edge drop into matching
-  sockets in the next piece, so the pieces can't pull apart sideways. The
-  floor has 12 tabs and the top has 11. There is 0.2 mm of clearance all
-  round each tab. The pieces go together from above, one dropped into the
-  next, and nothing holds them up or down at the seam itself: the wall
-  screws and standoffs do that.
-- **Walls.** Four flat panels, 2 mm thick, each in two pieces. The front and
+  sockets in the other piece, so the pieces can't pull apart sideways. The
+  floor has 6 tabs and the top has 5. There is 0.2 mm of clearance all
+  round each tab. The pieces go together from above, and nothing holds them
+  up or down at the seam itself: the standoffs and the walls do that.
+- **Walls.** Four flat panels, 2 mm thick, each in one piece. The front and
   back walls run the full width and the side walls fit between them. Each
-  panel stands on the floor.
+  panel stands on the floor. No screw goes into a wall.
   - A 9 mm flange along the bottom lies on the floor, under the board's
-    edge. It carries open **nut seats**: two ribs and a stop that hold an M3
-    nut so it can't turn. A screw comes up through the floor into each one.
-    Every wall piece has two, one near each end.
-  - A **nut lug** under the top edge of every wall piece (two on the long
-    back left piece). A nut slides into a slot in the lug from inside the
-    case, and one of the top's screws comes down into it.
-  - The flange has gaps round the bosses and round the VGA socket's pins,
-    so each panel slides straight in from outside, over its connectors.
+    edge. The flange has gaps round the bosses and round the VGA socket's
+    pins, so each panel slides straight in from outside, over its
+    connectors.
+  - **Floor catches.** The flange has a small pointed window at each catch
+    (17 in all: 4 on each wall and 5 on the back wall). Under each window
+    the floor has a spring finger, cut free by narrow slits on three
+    sides, with a 1.2 mm catch on its end. As the wall slides in, the
+    flange rides over the catch's ramp and presses the finger down, and
+    the catch clicks up into the window. The wall then pulls against two
+    upright faces of the catch, so it can't slide back out. A **stop
+    block** on the floor behind the flange's free edge stops the wall from
+    going in too far.
+  - **Top pegs.** A lug under the top edge of each wall (9 in all) has a
+    pointed socket, open upward. A matching peg under the top drops into
+    it, so the wall's top edge can move neither in nor out.
   - **Corner tabs.** Each end of a side wall has a 10 mm tall tab that
     reaches through a notch in the end of the front or back wall. It lines
-    the two walls up and stops the side wall's end leaning in. The corners
-    have no screw, because the corner standoffs are in the way.
-  - A wall's seam is never in line with a floor or top seam, so every seam
-    is bridged by the part next to it.
-- **Top.** Four pieces, 4 mm thick, with dovetail seams at x 160 and y 100,
-  between the expansion bay and the cartridge cover. The top screws to the
-  walls' nut lugs and to the eight standoffs.
+    the two walls up and stops the side wall's end leaning in.
+  - The walls are exactly as tall as the gap between the floor and the
+    top, so the top's eight screws clamp them. With the top on, a wall
+    can't lift off its catches.
+- **Top.** Two pieces, 4 mm thick, with a dovetail seam at x 160, between
+  the expansion bay and the cartridge cover. It screws to the eight
+  standoffs only.
 - **Covers.** The same printed snap covers as the aluminium case.
 
-![The top's four pieces, pulled apart to show the dovetail tabs](case_print_seams.png)
+![A floor catch on its spring finger and its stop block, with the right wall pulled out to show the window in its flange](case_print_catch.png)
+
+![The top from below, lifted: its pegs, and the lugs with sockets along the walls' top edges](case_print_pegs.png)
+
+![The top's two pieces, pulled apart to show the dovetail tabs](case_print_seams.png)
 
 ![Front left corner with the front wall pulled away: the side wall's tab and the front wall's notch](case_print_corner.png)
 
-![Inside the back right corner: nut seats on the flanges, a nut lug under the top edge, a floor boss](case_print_joints.png)
+![Inside the back right corner: windows in the flanges, stop blocks, lugs with sockets under the top edge, a floor boss](case_print_joints.png)
 
 ![The same corner with the board in](case_print_inside.png)
 
-![Underside: dovetail seams, vent slots, parking slots](case_print_underside.png)
+![Underside: dovetail seam, vent slots, parking slots, spring fingers](case_print_underside.png)
 
 ### Pieces and print orientation
 
@@ -392,59 +406,71 @@ the flat side on the bed at z = 0. None needs supports.
 
 | File | Print | Size on the bed (mm) | Orientation |
 |---|--:|---|---|
-| `floor_front_left` | 1 | 166.0 x 113.9 x 8.0 | Underside down, bosses up |
-| `floor_front_right` | 1 | 134.9 x 113.9 x 8.0 | Underside down, bosses up |
-| `floor_back_left` | 1 | 166.0 x 112.0 x 8.0 | Underside down, bosses up |
-| `floor_back_right` | 1 | 134.9 x 112.0 x 8.0 | Underside down, bosses up |
-| `wall_front_left` | 1 | 124.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
-| `wall_front_right` | 1 | 169.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
-| `wall_back_left` | 1 | 189.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
-| `wall_back_right` | 1 | 104.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
-| `wall_left_front` | 1 | 34.6 x 129.9 x 12.0 | Outside face down, flange and lugs up |
-| `wall_left_back` | 1 | 34.6 x 89.9 x 12.0 | Outside face down, flange and lugs up |
-| `wall_right_front` | 1 | 34.6 x 89.9 x 12.0 | Outside face down, flange and lugs up |
-| `wall_right_back` | 1 | 34.6 x 129.9 x 12.0 | Outside face down, flange and lugs up |
-| `top_front_left` | 1 | 167.0 x 107.0 x 4.0 | Underside down |
-| `top_front_right` | 1 | 134.9 x 107.0 x 4.0 | Underside down |
-| `top_back_left` | 1 | 167.0 x 119.9 x 4.0 | Underside down |
-| `top_back_right` | 1 | 134.9 x 119.9 x 4.0 | Underside down |
+| `floor_left` | 1 | 166.0 x 220.0 x 8.0 | Underside down, bosses up |
+| `floor_right` | 1 | 134.9 x 220.0 x 8.0 | Underside down, bosses up |
+| `wall_front` | 1 | 233.1 x 233.1 x 12.0 | Outside face down, flange and lugs up, along the bed's diagonal |
+| `wall_back` | 1 | 233.1 x 233.1 x 12.0 | Outside face down, flange and lugs up, along the bed's diagonal |
+| `wall_left` | 1 | 34.6 x 220.0 x 12.0 | Outside face down, flange and lugs up |
+| `wall_right` | 1 | 34.6 x 220.0 x 12.0 | Outside face down, flange and lugs up |
+| `top_left` | 1 | 167.0 x 220.0 x 8.0 | Top face down, pegs up |
+| `top_right` | 1 | 134.9 x 220.0 x 8.0 | Top face down, pegs up |
 | `slot_cover` | 4 | 26.0 x 91.2 x 23.0 | Cap face down |
 | `cart_cover` | 1 | 62.0 x 37.2 x 11.2 | Cap face down |
 | `dovetail_test` | 1 | 42.0 x 22.0 x 2.0 | Flat (optional fit test) |
+| `snap_test_wall` | 1 | 34.6 x 45.0 x 12.0 | Outside face down (fit test) |
+| `snap_test_floor` | 1 | 18.0 x 45.0 x 4.0 | Underside down (fit test) |
+| `snap_test_top` | 1 | 18.0 x 45.0 x 8.0 | Top face down (fit test) |
 
-- **Print `dovetail_test` first.** It is a small pair of plates with one
-  floor-size dovetail at the same 0.2 mm clearance. The two halves should
-  press together by hand and not rattle. If they are too tight or too
-  loose, change `DOVE_CLEAR` in `gen_case_print.py` and remake the files.
+- **Print the test pieces first.** `dovetail_test` is a small pair of
+  plates with one floor-size dovetail at the same 0.2 mm clearance. The
+  two halves should press together by hand and not rattle. The three
+  `snap_test` pieces are a 45 mm stretch of the right wall with the floor
+  and top next to it: one catch and window, one stop block, one peg and
+  socket. Slide the wall piece onto the floor piece until it clicks, check
+  that it won't pull back, press the finger down from below to let it go,
+  and try the peg in the socket. If a fit is too tight or too loose,
+  change `DOVE_CLEAR` or `SNAP_CLEAR` in `gen_case_print.py` and remake
+  the files.
+- The front and back walls are 295 mm long, so they lie along the bed's
+  diagonal. The files are already turned 45 degrees. Keep that angle in
+  the slicer and switch off auto-arrange for those two plates, or it may
+  turn them back.
 - Use a 0.4 mm nozzle and 0.2 mm layers.
 - Print the floor and wall pieces solid (100 % infill, or 5 perimeters).
   They are only 2 mm thick.
 - Use PETG. PLA works, but it softens from about 55 C, and the inside of a
-  closed case gets warm.
-- Print these slowly: the wall panels' nut seat ribs and corner tabs
-  (2 mm) and the covers' tabs (1.8 mm).
-- A first layer that spreads (elephant's foot) tightens the dovetails. If
-  the test piece only binds at the bottom, add elephant's foot
-  compensation in the slicer.
-- The largest piece is 167 x 120 mm, so there is room for a brim on every
-  piece.
+  closed case gets warm. PLA spring fingers are also more likely to crack
+  than PETG ones.
+- The outside faces of the walls and the top's upper face lie on the bed,
+  so they take the build plate's finish. A textured PEI plate gives the
+  whole outside one even texture.
+- Print these slowly: the walls' corner tabs (2 mm), the covers' tabs
+  (1.8 mm), and the first layers of the floor, where the 0.8 mm slits
+  round the spring fingers have to stay open.
+- A first layer that spreads (elephant's foot) tightens the dovetails and
+  can close the slits. If the test pieces only bind at the bottom, add
+  elephant's foot compensation in the slicer.
+- The largest footprint is 233 x 233 mm (a long wall on the diagonal), and
+  the floor and top pieces are 220 mm deep, so every piece has room for a
+  brim on a 256 mm bed.
 - All the pieces together are about 507 cm3, which is about
   0.64 kg of PETG.
 - A clear top: clear (natural) PETG at 100 % infill, printed hot and slow,
-  comes out like frosted glass. The seams will show.
+  comes out like frosted glass. The seam will show.
 
 How the parts were made printable:
 
 - A dovetail's flare is in the flat direction, so the tabs and sockets
   have straight vertical sides and no overhang.
-- Every hole that lies on its side when printed (the screw holes through
-  the flanges and lugs) is a teardrop with a peaked roof, 39 degrees from
-  vertical.
-- Nut seats and lug slots are open toward the top of the print, so nothing
-  bridges over a nut.
-- No screw head is recessed, except one countersink on the floor's bed
-  face, where a parked slot cover lies against the floor. A countersink is
-  a 45 degree cone, so it has no ceiling to bridge.
+- The windows in the flanges and the sockets in the lugs lie on their
+  side when a wall prints. Each has a peaked roof, two flats 40 degrees
+  from vertical, so nothing bridges. The catches and pegs have the same
+  pointed shape, and that point is also what the wall pulls against.
+- The spring fingers are part of the flat floor. Their slits are plain
+  vertical cuts, and the catches and stop blocks stand on top.
+- The top prints upper face down, so its pegs print upward from the
+  plate. Each peg is about 6 x 4 mm, and its end is chamfered.
+- No screw head is recessed, so no bed face has a recess to bridge.
 - The covers' bumps have a 45 degree ramp on the cap side, and the slot
   cover's back lip has a blunt cone where it had a dome, so nothing on a
   cover overhangs when it prints cap down.
@@ -457,26 +483,35 @@ How the parts were made printable:
 | Check | Result |
 |---|---|
 | Fit: no printed part cuts into the board, any part on it, a standoff or another printed part | Pass |
-| Fit: no nut seat within 1.5 mm of a through-hole pad (a seat's top is 1.6 mm under the board) | Pass |
-| Watertight: every edge shared by exactly two triangles | 21 of 21 files |
-| Bed: footprint within 215 x 215 mm | 21 of 21 files |
-| Overhangs: no downward face above the bed steeper than 45 degrees | 21 of 21 files, none found |
-| Islands: every layer rests on the layer below (sliced every 0.2 mm) | 21 of 21 files, none found |
+| Fit: each wall, 3, 6 and 10 mm out on its way in, clears the board, its parts, the standoffs and the floor | Pass |
+| Joints: every catch's window is in a whole stretch of flange, and every spring finger and stop block is on plain floor (no boss, vent, slot, foot or seam) | Pass |
+| Joints: no spring finger under a parked cover | Pass, except one on purpose (below) |
+| Watertight: every edge shared by exactly two triangles | 14 of 14 files |
+| Bed: footprint within 251 x 251 mm | 14 of 14 files |
+| Overhangs: no downward face above the bed steeper than 45 degrees | 14 of 14 files, none found |
+| Islands: every layer rests on the layer below (sliced every 0.2 mm) | 14 of 14 files, none found |
 
-The 21 files are the 19 in `case/print/` and the two cover files in `case/`.
-The overhang and island checks were tried on two pieces turned upside down,
-and they failed both, as they should. The case has not been printed yet, so
-the dovetail fit is from the model only.
+The 14 files are the ones in `case/print/`, test pieces and covers
+included. The overhang and island checks were tried on two pieces turned
+upside down (`wall_right` and `top_left`), and they failed both, as they
+should.
+
+The back wall's catch at x 92 is under the parked slot covers. A parked
+cover lies against the floor there, so that finger can't move while a
+cover is parked under it. That only holds the catch shut. Fit and remove
+the back wall with the slot covers off the floor.
+
+The case has not been printed yet, so the dovetail, catch and peg fits
+are from the model only. The spring fingers are 19 mm long, 4.6 mm wide
+and 2 mm thick. Bending one 1.2 mm strains it about 1 %, by a simple beam
+calculation, which PETG takes.
 
 ### Hardware
 
 | Part | Qty | Where |
 |---|--:|---|
-| M3 x 6 button head screw | 15 | Up through the floor into the walls' nut seats |
-| M3 x 6 countersunk screw | 1 | The floor screw under the parked slot covers (back wall), flush |
-| M3 x 8 button head screw | 17 | Top: 9 into the walls' nut lugs, 8 into the standoffs |
+| M3 x 8 button head screw | 8 | Down through the top into the standoffs |
 | M3 x 12 button head screw | 8 | Up through the floor bosses and the board into the standoffs |
-| M3 hex nut, ISO 4032 | 25 | One in each nut seat and nut lug |
 | M3 female-female hex standoff, 27 mm | 8 | Board to the top |
 | Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | As on the aluminium case |
 
@@ -484,25 +519,28 @@ Black screws look best on the top.
 
 ### Putting it together
 
-1. **Floor.** On a flat table, drop the four floor pieces into each other
-   along the dovetail seams.
+1. **Floor.** On a flat table, drop the two floor pieces into each other
+   along the dovetail seam.
 2. **Board.** Set the board on the eight bosses. Put an M3 x 12 screw up
    through each boss and the board, and spin a 27 mm standoff onto it.
-   This also ties the four floor pieces to the board.
-3. **Nuts.** Put an M3 nut in every nut seat on the walls' flanges (it
-   drops in from above) and slide one into every lug slot.
-4. **Walls.** Slide each wall piece in from outside, flat on the floor: the
-   back pieces over USB-C, audio, VGA and PS/2, the left pieces over the
-   power switch, reset and SD. The side walls' corner tabs go into the
-   front and back walls' notches. Screw each piece down from below with
-   two M3 x 6 screws. The one hole under the expansion bay is countersunk
-   for the flat head screw.
-5. **Top.** Drop the four top pieces into each other on the table, then
-   lift the top on in one piece, with a hand under the middle. Fit the 9
-   screws into the wall lugs and the 8 into the standoffs.
-6. Stick the feet on, fit the VGA jackscrews and click the covers on.
+   This also ties the two floor pieces to the board.
+3. **Feet.** Stick the four feet on now. The spring fingers dip 1.2 mm
+   below the floor as a wall goes in, so the floor has to be off the
+   table for the next step.
+4. **Walls.** Slide each wall in from outside, flat on the floor, until
+   its catches click: the side walls first, then the front and back
+   walls, whose notches take the side walls' corner tabs. The back wall
+   goes over USB-C, audio, VGA and PS/2, the left wall over the power
+   switch, reset and SD.
+5. **Top.** Drop the two top pieces into each other on the table, then
+   lift the top on in one piece, with a hand under the middle. Its nine
+   pegs go into the walls' sockets. Fit the 8 screws into the standoffs.
+6. Fit the VGA jackscrews and click the covers on.
 
-To open the case, take out the top's 17 screws and lift the top off.
+To open the case, take out the top's 8 screws and lift the top off. To
+take a wall out, press each of its spring fingers down from under the
+floor (a fingertip or a flat screwdriver in the slit end) while pulling
+the wall outward.
 
 ## Getting a quote
 
@@ -579,8 +617,8 @@ python3 src/scripts/case_render/gen_case_hardware.py  # screws, standoffs, nuts 
 
 The renders use three.js in headless Chromium (`src/scripts/case_render/`).
 Make the meshes as above, then run `npm install three@0.160.0` in
-`case_render/web`. Serve `case_render/` on port 8765, then run
-`node shoot_case.js [view ...]`. The views are in `views.json`. The
+`case_render/web`. For the aluminium case, serve `case_render/` on port
+8765, then run `node shoot_case.js [view ...]`. The views are in `views.json`. The
 cartridge in the renders is the short 32K one (39 x 66 mm board). The
 printed case's renders come from `node shoot_print.js [view ...]`, which
-needs both scripts' meshes.
+needs both scripts' meshes and no server.
